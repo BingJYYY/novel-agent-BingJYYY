@@ -1,0 +1,43 @@
+# 网文动态大纲智能体 —— 配置文件
+# 复制此文件为 config.yaml 并填入你的 API Key 即可使用
+
+# LLM 配置
+llm:
+  # 可选: deepseek / tongyi / zhipu / openai
+  provider: deepseek
+
+  # API 请求超时（秒）
+  request_timeout: 120
+
+  # 最大重试次数
+  max_retries: 3
+
+  # OpenAI 兼容接口配置（DeepSeek 也用这个）
+  openai:
+    api_key: "your-api-key-here"
+    base_url: "https://api.deepseek.com/v1"
+    model: "deepseek-chat"
+    temperature: 0.3
+    max_tokens: 16000
+
+  # 通义千问（阿里）
+  # tongyi:
+  #   api_key: "your-api-key-here"
+  #   model: "qwen-plus"
+  #   temperature: 0.3
+  #   max_tokens: 16000
+
+  # 智谱 GLM
+  # zhipu:
+  #   api_key: "your-api-key-here"
+  #   model: "glm-4"
+  #   temperature: 0.3
+  #   max_tokens: 16000
+
+# 小说配置
+novel:
+  protagonist: ""
+
+# 数据库配置
+database:
+  path: "novel.db"

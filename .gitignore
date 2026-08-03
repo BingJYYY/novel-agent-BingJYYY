@@ -1,0 +1,47 @@
+# ========== 敏感/个人信息 ==========
+config.yaml
+novels.json
+.env
+
+# ========== 章节测试文件 ==========
+chapter*.txt
+第*.txt
+*.chapter.txt
+
+# ========== 日志文件 ==========
+*.log
+logs/
+
+# ========== 数据库（含小说分析数据） ==========
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ========== 备份 & 临时 ==========
+*.bak
+*.backup
+*.tmp
+temp/
+tmp/
+
+# ========== Python 缓存 ==========
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ========== IDE ==========
+.vscode/
+.idea/
+
+# ========== 虚拟环境 ==========
+venv/
+env/
+.venv/
+
+# ========== 系统文件 ==========
+Thumbs.db
+.DS_Store
