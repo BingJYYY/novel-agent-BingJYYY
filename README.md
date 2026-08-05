@@ -84,34 +84,7 @@ pip install -r requirements.txt
 
 ### 第三步：配置 API Key
 
-**方式一：弹窗直接填写（推荐，启动后自动弹出）**
-
-双击 `启动.bat` 或运行 `python main.py serve`，页面会自动弹出配置弹窗，选择服务商、填入 API Key 即可。
-
-**方式二：仪表盘设置页**
-
-启动后点击右上角 **⚙️ 设置** 标签页，也可以修改配置。
-
-**方式三：设置环境变量**
-
-```bash
-# Windows (PowerShell)
-$env:DEEPSEEK_API_KEY="sk-你的密钥"
-
-# Windows (CMD)
-set DEEPSEEK_API_KEY=sk-你的密钥
-
-# Linux / Mac
-export DEEPSEEK_API_KEY=sk-你的密钥
-```
-
-支持的变量名：`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY`（通义） / `ZHIPU_API_KEY`（智谱） / `OPENAI_API_KEY`
-
-**方式四：命令行**
-
-```bash
-python main.py config --api-key sk-你的密钥
-```
+启动后会自动弹出配置弹窗，选择服务商、填入 API Key 即可。
 
 > **怎么获取 API Key？**
 > - DeepSeek：去 [platform.deepseek.com](https://platform.deepseek.com/) 注册，在 API Keys 页面创建
