@@ -3,6 +3,7 @@ Web 仪表盘 —— Flask 实时查看数据库 + 在线提交章节
 """
 
 import json
+import os
 import sys
 import webbrowser
 import threading
@@ -65,6 +66,26 @@ NOVELS_FILE = "novels.json"
 _current_novel = None  # 当前小说名，None 表示默认
 
 
+def _check_first_run():
+    """检查是否首次运行，输出提示"""
+    import os as _os
+    if not _os.path.exists(CONFIG_PATH):
+        return
+    yaml = None
+    try:
+        import yaml as _yaml
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            yaml = _yaml.safe_load(f) or {}
+    except Exception:
+        return
+    llm = yaml.get("llm", {})
+    provider = llm.get("provider", "deepseek")
+    _cfg_key = "openai" if provider in ("deepseek", "openai") else provider
+    key = (llm.get(_cfg_key, {}) or {}).get("api_key", "")
+    if not key or key == "your-api-key-here":
+        print("\n  [提示] 未检测到 API Key，打开后在弹窗中填写即可。\n")
+
+
 def _load_novels():
     """加载小说列表"""
     try:
@@ -92,7 +113,85 @@ def get_db():
 
 @app.route("/")
 def index():
+    _check_first_run()
     return render_template("dashboard.html")
+
+
+# ============================================================
+# 配置 API（在页面内直接设置 API Key）
+# ============================================================
+
+@app.route("/api/config")
+def api_config():
+    """获取当前配置（API Key 脱敏后返回）"""
+    try:
+        import yaml
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        return jsonify({"ok": True, "config": {"provider": "deepseek", "model": "deepseek-chat", "api_key": "", "has_key": False}})
+
+    llm = config.get("llm", {})
+    provider = llm.get("provider", "deepseek")
+    _cfg_key = "openai" if provider in ("deepseek", "openai") else provider
+    provider_cfg = llm.get(_cfg_key, {})
+    api_key = provider_cfg.get("api_key", "")
+
+    return jsonify({
+        "ok": True,
+        "config": {
+            "provider": provider,
+            "model": provider_cfg.get("model", ""),
+            "api_key": _mask_key(api_key),
+            "has_key": bool(api_key and api_key != "your-api-key-here"),
+        }
+    })
+
+
+@app.route("/api/config", methods=["POST"])
+def api_config_save():
+    """保存配置（API Key 等）"""
+    import yaml
+    data = request.get_json() or {}
+    api_key = (data.get("api_key") or "").strip()
+    provider = (data.get("provider") or "deepseek").strip()
+    model = (data.get("model") or "deepseek-chat").strip()
+
+    if not api_key:
+        return jsonify({"ok": False, "error": "API Key 不能为空"})
+
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        # 首次保存：从模板复制完整结构
+        config = {}
+        example_path = "config.example.yaml"
+        if os.path.exists(example_path):
+            with open(example_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f) or {}
+
+    config.setdefault("llm", {})["provider"] = provider
+    _cfg_key = "openai" if provider in ("deepseek", "openai") else provider
+    config["llm"].setdefault(_cfg_key, {})
+    config["llm"][_cfg_key]["api_key"] = api_key
+    if model:
+        config["llm"][_cfg_key]["model"] = model
+    if provider == "deepseek":
+        config["llm"][_cfg_key].setdefault("base_url", "https://api.deepseek.com/v1")
+        config["llm"][_cfg_key].setdefault("temperature", 0.3)
+        config["llm"][_cfg_key].setdefault("max_tokens", 16000)
+
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    return jsonify({"ok": True, "message": "配置已保存"})
+
+
+def _mask_key(key: str) -> str:
+    if not key or len(key) <= 8:
+        return key
+    return key[:5] + "****" + key[-3:]
 
 
 # ============================================================

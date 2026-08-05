@@ -3,6 +3,7 @@ LLM 梗概提取器 —— 核心解析逻辑
 """
 
 import json
+import os
 import re
 import yaml
 from typing import Optional, Tuple
@@ -17,10 +18,22 @@ from db.repository import build_context_summary
 
 def load_config(config_path: str = "config.yaml") -> dict:
     path = Path(config_path)
+    if not path.exists():
+        _init_config_from_example(path)
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
     return {}
+
+
+def _init_config_from_example(config_path: Path):
+    example = Path("config.example.yaml")
+    if example.exists():
+        import shutil
+        shutil.copy(example, config_path)
+        print(f"[提示] 已自动生成 {config_path}，请打开该文件填入你的 API Key 后重新运行。")
+        return True
+    return False
 
 
 def create_llm(config: dict) -> ChatOpenAI:
@@ -28,41 +41,57 @@ def create_llm(config: dict) -> ChatOpenAI:
     provider = llm_config.get("provider", "deepseek")
     timeout = llm_config.get("request_timeout", 120)
 
+    # 环境变量 → 配置文件 → 报错
+    _ENV_KEY_MAP = {
+        "deepseek": "DEEPSEEK_API_KEY",
+        "tongyi": "DASHSCOPE_API_KEY",
+        "zhipu": "ZHIPU_API_KEY",
+        "openai": "OPENAI_API_KEY",
+    }
+    env_key = _ENV_KEY_MAP.get(provider, "")
+    api_key = os.environ.get(env_key, "")
+
     if provider == "openai" or provider == "deepseek":
         openai_cfg = llm_config.get("openai", {})
-        return ChatOpenAI(
-            api_key=openai_cfg.get("api_key", ""),
-            base_url=openai_cfg.get("base_url", "https://api.deepseek.com/v1"),
-            model=openai_cfg.get("model", "deepseek-chat"),
-            temperature=openai_cfg.get("temperature", 0.3),
-            max_tokens=openai_cfg.get("max_tokens", 16000),
-            request_timeout=timeout,
-            max_retries=llm_config.get("max_retries", 3),
-        )
+        api_key = api_key or openai_cfg.get("api_key", "")
+        base_url = openai_cfg.get("base_url", "https://api.deepseek.com/v1")
+        model = openai_cfg.get("model", "deepseek-chat")
+        temperature = openai_cfg.get("temperature", 0.3)
+        max_tokens = openai_cfg.get("max_tokens", 16000)
     elif provider == "tongyi":
         tongyi_cfg = llm_config.get("tongyi", {})
-        return ChatOpenAI(
-            api_key=tongyi_cfg.get("api_key", ""),
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model=tongyi_cfg.get("model", "qwen-plus"),
-            temperature=tongyi_cfg.get("temperature", 0.3),
-            max_tokens=tongyi_cfg.get("max_tokens", 16000),
-            request_timeout=timeout,
-            max_retries=llm_config.get("max_retries", 3),
-        )
+        api_key = api_key or tongyi_cfg.get("api_key", "")
+        base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        model = tongyi_cfg.get("model", "qwen-plus")
+        temperature = tongyi_cfg.get("temperature", 0.3)
+        max_tokens = tongyi_cfg.get("max_tokens", 16000)
     elif provider == "zhipu":
         zhipu_cfg = llm_config.get("zhipu", {})
-        return ChatOpenAI(
-            api_key=zhipu_cfg.get("api_key", ""),
-            base_url="https://open.bigmodel.cn/api/paas/v4",
-            model=zhipu_cfg.get("model", "glm-4"),
-            temperature=zhipu_cfg.get("temperature", 0.3),
-            max_tokens=zhipu_cfg.get("max_tokens", 16000),
-            request_timeout=timeout,
-            max_retries=llm_config.get("max_retries", 3),
-        )
+        api_key = api_key or zhipu_cfg.get("api_key", "")
+        base_url = "https://open.bigmodel.cn/api/paas/v4"
+        model = zhipu_cfg.get("model", "glm-4")
+        temperature = zhipu_cfg.get("temperature", 0.3)
+        max_tokens = zhipu_cfg.get("max_tokens", 16000)
     else:
         raise ValueError(f"不支持的 LLM provider: {provider}")
+
+    if not api_key:
+        raise ValueError(
+            f"未找到 API Key。请通过以下任一方式设置：\n"
+            f"  1. 设置环境变量：set {env_key}=你的key\n"
+            f"  2. 在 config.yaml 的 llm.{provider}.api_key 中填入\n"
+            f"  3. 运行命令：python main.py config --api-key 你的key"
+        )
+
+    return ChatOpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        request_timeout=timeout,
+        max_retries=llm_config.get("max_retries", 3),
+    )
 
 
 def parse_llm_response(response_text: str) -> Tuple[str, Optional[dict]]:

@@ -111,9 +111,60 @@
         /* 进度条 */
         .progress-bar { flex: 1; height: 8px; background: #1e2a3a; border-radius: 4px; overflow: hidden; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4ade80, #22c55e); border-radius: 4px; transition: width 0.3s; }
+
+        /* 配置弹窗 */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 999; display: flex; align-items: center; justify-content: center; }
+        .modal-overlay.hidden { display: none; }
+        .modal-box { background: #1a2332; border: 1px solid #3a3a5a; border-radius: 12px; padding: 32px; max-width: 460px; width: 90%; }
+        .modal-box h2 { font-size: 20px; color: #e0b040; margin-bottom: 6px; }
+        .modal-box .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+        .modal-box .field { margin-bottom: 14px; }
+        .modal-box .field label { display: block; font-size: 13px; color: #888; margin-bottom: 4px; }
+        .modal-box .field input, .modal-box .field select { width: 100%; padding: 10px 14px; background: #0f1923; border: 1px solid #2a2a4a; border-radius: 6px; color: #e0e0e0; font-size: 14px; outline: none; }
+        .modal-box .field input:focus, .modal-box .field select:focus { border-color: #4ade80; }
+        .modal-box .field input { font-family: monospace; }
+        .modal-box .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-box .btn-save { flex: 1; padding: 12px; background: #4ade80; border: none; border-radius: 6px; color: #0f1923; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .modal-box .btn-save:hover { background: #22c55e; }
+        .modal-box .btn-skip { padding: 12px 20px; background: transparent; border: 1px solid #3a3a5a; border-radius: 6px; color: #888; font-size: 13px; cursor: pointer; }
+        .modal-box .btn-skip:hover { color: #ccc; }
+        .modal-box .error-msg { font-size: 12px; color: #f87171; margin-top: 8px; display: none; }
+        .modal-box .env-hint { font-size: 12px; color: #555; margin-top: 4px; }
+
+        /* Toast */
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #1a2a1a; color: #4ade80; padding: 12px 24px; border-radius: 8px; font-size: 14px; border: 1px solid #2a4a2a; animation: toastIn 0.3s ease; }
+        .toast.fadeout { animation: toastOut 0.3s ease forwards; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
     </style>
 </head>
 <body>
+    <!-- 首次配置弹窗 -->
+    <div class="modal-overlay hidden" id="config-modal">
+        <div class="modal-box">
+            <h2>⚙️ 首次配置</h2>
+            <div class="subtitle">请填入你的 API Key 以开始使用</div>
+            <div class="field">
+                <label>服务商</label>
+                <select id="modal-provider">
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="tongyi">通义千问</option>
+                    <option value="zhipu">智谱 GLM</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>API Key</label>
+                <input type="password" id="modal-apikey" placeholder="sk-xxxxxxxxxxxxxxxx">
+                <div class="env-hint">已通过环境变量设置？<a href="#" onclick="document.getElementById('config-modal').classList.add('hidden');return false;" style="color:#4ade80;">跳过</a></div>
+            </div>
+            <div class="error-msg" id="modal-error"></div>
+            <div class="btn-row">
+                <button class="btn-save" onclick="submitModalConfig()">💾 保存并开始使用</button>
+            </div>
+        </div>
+    </div>
+
     <div class="header">
         <h1>网文动态大纲</h1>
         <div style="display:flex;align-items:center;gap:12px;">
@@ -143,6 +194,7 @@
         <div class="tab" data-tab="foreshadowings">伏笔</div>
         <div class="tab" data-tab="timeline">时间线</div>
         <div class="tab" data-tab="conflicts">冲突</div>
+        <div class="tab tab-config" data-tab="config">⚙️ 设置</div>
     </div>
 
     <div class="content">
@@ -213,6 +265,41 @@
         <!-- 冲突 -->
         <div class="panel" id="panel-conflicts">
             <div id="conflicts-content"></div>
+        </div>
+
+        <!-- 设置 -->
+        <div class="panel" id="panel-config">
+            <div class="card" style="max-width:600px;">
+                <div class="card-header">
+                    <span class="card-title">API 配置</span>
+                    <span class="badge badge-green" id="config-status" style="display:none;">已配置</span>
+                    <span class="badge badge-red" id="config-status-empty" style="display:none;">未配置</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div>
+                        <label style="font-size:13px;color:#888;">服务商</label>
+                        <div style="display:flex;gap:8px;margin-top:6px;">
+                            <select id="config-provider" style="padding:8px 12px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;flex:1;">
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="tongyi">通义千问</option>
+                                <option value="zhipu">智谱 GLM</option>
+                                <option value="openai">OpenAI</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;color:#888;">模型</label>
+                        <input type="text" id="config-model" placeholder="deepseek-chat" style="width:100%;padding:10px 14px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;margin-top:6px;">
+                    </div>
+                    <div>
+                        <label style="font-size:13px;color:#888;">API Key</label>
+                        <input type="password" id="config-apikey" placeholder="sk-xxxxxxxx" style="width:100%;padding:10px 14px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;margin-top:6px;font-family:monospace;">
+                        <div class="hint" style="margin-top:4px;">支持环境变量，无需填写：DEEPSEEK_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY</div>
+                    </div>
+                    <button class="btn btn-submit" onclick="saveConfig()" style="align-self:flex-start;">💾 保存配置</button>
+                    <div id="config-msg" style="font-size:13px;padding:8px;border-radius:6px;display:none;"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -654,6 +741,109 @@
 
         loadAll();
         setInterval(loadAll, 30000);
+        loadConfig();
+
+        function showToast(msg) {
+            const el = document.createElement('div');
+            el.className = 'toast';
+            el.textContent = msg;
+            document.body.appendChild(el);
+            setTimeout(() => { el.classList.add('fadeout'); setTimeout(() => el.remove(), 300); }, 3000);
+        }
+
+        // ---- 配置管理 ----
+        async function loadConfig() {
+            try {
+                const resp = await fetch('/api/config');
+                const data = await resp.json();
+                if (data.ok && data.config) {
+                    document.getElementById('config-provider').value = data.config.provider || 'deepseek';
+                    document.getElementById('config-model').value = data.config.model || '';
+                    document.getElementById('config-apikey').value = data.config.api_key || '';
+                    document.getElementById('config-status').style.display = data.config.has_key ? 'inline-block' : 'none';
+                    document.getElementById('config-status-empty').style.display = data.config.has_key ? 'none' : 'inline-block';
+                    // 未配置 API Key 时弹出配置弹窗
+                    if (!data.config.has_key) {
+                        document.getElementById('config-modal').classList.remove('hidden');
+                    }
+                }
+            } catch(e) { /* 忽略 */ }
+        }
+
+        async function submitModalConfig() {
+            const apiKey = document.getElementById('modal-apikey').value.trim();
+            const provider = document.getElementById('modal-provider').value;
+            const errorEl = document.getElementById('modal-error');
+            // 根据服务商自动选择默认模型
+            const DEFAULT_MODELS = { deepseek: 'deepseek-chat', tongyi: 'qwen-plus', zhipu: 'glm-4', openai: 'gpt-4o' };
+            const model = DEFAULT_MODELS[provider] || 'deepseek-chat';
+
+            if (!apiKey) {
+                errorEl.textContent = '请输入 API Key';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key: apiKey, provider: provider, model: model})
+                });
+                const data = await resp.json();
+                if (data.ok) {
+                    document.getElementById('config-modal').classList.add('hidden');
+                    // 同步设置页面的值
+                    document.getElementById('config-provider').value = provider;
+                    document.getElementById('config-model').value = model;
+                    document.getElementById('config-status').style.display = 'inline-block';
+                    document.getElementById('config-status-empty').style.display = 'none';
+                    // 在页面顶部显示成功提示
+                    showToast('配置已保存！请重启服务后生效。');
+                } else {
+                    errorEl.textContent = data.error;
+                    errorEl.style.display = 'block';
+                }
+            } catch(e) {
+                errorEl.textContent = '保存失败：' + e.message;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        async function saveConfig() {
+            const apiKey = document.getElementById('config-apikey').value.trim();
+            const provider = document.getElementById('config-provider').value;
+            const model = document.getElementById('config-model').value.trim();
+            const msg = document.getElementById('config-msg');
+
+            if (!apiKey && !confirm('API Key 为空。如果使用环境变量则无需填写，确定保存空配置吗？')) return;
+
+            try {
+                const resp = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({api_key: apiKey, provider: provider, model: model})
+                });
+                const data = await resp.json();
+                msg.style.display = 'block';
+                if (data.ok) {
+                    msg.style.background = '#1a2a1a';
+                    msg.style.color = '#4ade80';
+                    msg.textContent = '✅ ' + data.message + '（需重启服务生效）';
+                    document.getElementById('config-status').style.display = 'inline-block';
+                    document.getElementById('config-status-empty').style.display = 'none';
+                } else {
+                    msg.style.background = '#3a1a1a';
+                    msg.style.color = '#f87171';
+                    msg.textContent = '❌ ' + data.error;
+                }
+            } catch(e) {
+                msg.style.display = 'block';
+                msg.style.background = '#3a1a1a';
+                msg.style.color = '#f87171';
+                msg.textContent = '❌ 保存失败：' + e.message;
+            }
+        }
     </script>
 </body>
 </html>

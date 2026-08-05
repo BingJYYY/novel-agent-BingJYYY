@@ -29,10 +29,22 @@ def get_db_path(config_path: str = "config.yaml") -> str:
 
 def load_config(path: str = "config.yaml") -> dict:
     p = Path(path)
+    if not p.exists():
+        _init_config_from_example(p)
     if p.exists():
         with open(p, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
     return {}
+
+
+def _init_config_from_example(config_path: Path):
+    example = Path("config.example.yaml")
+    if example.exists():
+        import shutil
+        shutil.copy(example, config_path)
+        print(f"[提示] 已自动生成 {config_path}，请打开该文件填入你的 API Key 后重新运行。")
+        return True
+    return False
 
 
 def save_config(config: dict, path: str = "config.yaml"):

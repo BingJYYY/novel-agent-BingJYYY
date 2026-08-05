@@ -1,5 +1,9 @@
 # 网文动态大纲智能体 —— 配置文件
-# 复制此文件为 config.yaml 并填入你的 API Key 即可使用
+# 最简单的方式：设置环境变量，无需修改此文件
+#   Windows:  set DEEPSEEK_API_KEY=sk-xxxxxxxx
+#   Linux/Mac: export DEEPSEEK_API_KEY=sk-xxxxxxxx
+# 或者运行：python main.py config --api-key sk-xxxxxxxx
+# 提示词已内置在 extractor/prompt.py 中，开箱即用
 
 # LLM 配置
 llm:

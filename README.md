@@ -41,7 +41,7 @@ novel-agent/
 ├── app.py                      # 桌面应用启动器
 ├── 启动.bat                     # 双击启动（Windows）
 ├── requirements.txt            # Python 依赖
-├── config.example.yaml         # 配置模板（复制为 config.yaml 后填入你的 API Key）
+├── config.example.yaml         # 配置模板（也可用环境变量或命令行，无需修改）
 ├── .gitignore                  # Git 忽略规则
 │
 ├── db/                         # 数据库层
@@ -84,21 +84,36 @@ pip install -r requirements.txt
 
 ### 第三步：配置 API Key
 
-把 `config.example.yaml` 复制一份，改名为 `config.yaml`：
+**方式一：仪表盘内直接设置（推荐，打开页面就能填）**
+
+启动后打开浏览器，点击右上角 **⚙️ 设置** 标签页，填入 API Key 和模型，保存即可。
+
+**方式二：设置环境变量（无需修改文件）**
+
+```bash
+# Windows (PowerShell)
+$env:DEEPSEEK_API_KEY="sk-你的密钥"
+
+# Windows (CMD)
+set DEEPSEEK_API_KEY=sk-你的密钥
+
+# Linux / Mac
+export DEEPSEEK_API_KEY=sk-你的密钥
+```
+
+支持的变量名：`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY`（通义） / `ZHIPU_API_KEY`（智谱） / `OPENAI_API_KEY`
+
+**方式二：通过命令行**
+
+```bash
+python main.py config --api-key sk-你的密钥
+```
+
+**方式三：编辑配置文件**
 
 ```bash
 copy config.example.yaml config.yaml
-```
-
-打开 `config.yaml`，把你的 API Key 填进去：
-
-```yaml
-llm:
-  provider: deepseek          # 可选: deepseek / tongyi / zhipu
-  openai:
-    api_key: "sk-你的API密钥"  # ← 改这里
-    base_url: "https://api.deepseek.com/v1"
-    model: "deepseek-chat"
+# 然后编辑 config.yaml 填入 API Key
 ```
 
 > **怎么获取 API Key？**
