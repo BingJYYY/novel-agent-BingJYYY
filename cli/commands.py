@@ -113,6 +113,10 @@ def submit(file_path, chapter_range, author_notes, protagonist):
             click.echo(f"\n数据库已更新：新增 {stats['added']}，更新 {stats['updated']}，"
                        f"归档 {stats['archived']}，锁定事件 {stats['locked']}，"
                        f"冲突 {stats['conflicts']}")
+            if stats.get("errors"):
+                click.echo(f"\n⚠ 以下操作失败：")
+                for err in stats["errors"]:
+                    click.echo(f"  - {err}")
         else:
             click.echo("\n未检测到数据库操作 JSON，已保存原始输出。")
 

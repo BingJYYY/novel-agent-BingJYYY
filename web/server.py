@@ -13,10 +13,49 @@ from flask import Flask, render_template, jsonify, request
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from db.models import init_db, Character, Event, WorldSetting, Foreshadowing, TimelineEntry, SettingConflict
-from db.repository import build_context_summary, create_session_record
-from extractor.parser import process_chapters, process_chapters_quick
-from extractor.applier import apply_db_operations
+# 延迟导入重型模块，按需加载（启动速度重大优化）
+_init_db = None
+_models_cache = None
+_repo_cache = None
+_parser_cache = None
+_applier_cache = None
+
+
+def _lazy_models():
+    global _models_cache
+    if _models_cache is None:
+        from db import models as _m
+        _models_cache = _m
+    return _models_cache
+
+
+def _lazy_init_db(db_path="novel.db"):
+    from db.models import init_db
+    return init_db(db_path)
+
+
+def _lazy_repo():
+    global _repo_cache
+    if _repo_cache is None:
+        from db import repository as _r
+        _repo_cache = _r
+    return _repo_cache
+
+
+def _lazy_parser():
+    global _parser_cache
+    if _parser_cache is None:
+        from extractor import parser as _p
+        _parser_cache = _p
+    return _parser_cache
+
+
+def _lazy_applier():
+    global _applier_cache
+    if _applier_cache is None:
+        from extractor import applier as _a
+        _applier_cache = _a
+    return _applier_cache
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -43,8 +82,8 @@ def _save_novels(data):
 def get_db():
     global _current_novel
     if _current_novel:
-        return init_db(f"novel-{_current_novel}.db")
-    return init_db(DB_PATH)
+        return _lazy_init_db(f"novel-{_current_novel}.db")
+    return _lazy_init_db(DB_PATH)
 
 
 # ============================================================
@@ -64,7 +103,7 @@ def index():
 def api_status():
     db = get_db()
     try:
-        summary = build_context_summary(db)
+        summary = _lazy_repo().build_context_summary(db)
         return jsonify({"ok": True, "summary": summary})
     finally:
         db.close()
@@ -74,7 +113,8 @@ def api_status():
 def api_characters():
     db = get_db()
     try:
-        chars = db.query(Character).order_by(Character.is_protagonist.desc(), Character.name).all()
+        models = _lazy_models()
+        chars = db.query(models.Character).order_by(models.Character.is_protagonist.desc(), models.Character.name).all()
         result = []
         for c in chars:
             aliases = [a.alias for a in c.aliases]
@@ -111,7 +151,8 @@ def api_characters():
 def api_events():
     db = get_db()
     try:
-        events = db.query(Event).order_by(Event.sort_order).all()
+        models = _lazy_models()
+        events = db.query(models.Event).order_by(models.Event.sort_order).all()
         result = []
         for e in events:
             result.append({
@@ -132,7 +173,8 @@ def api_events():
 def api_settings():
     db = get_db()
     try:
-        settings = db.query(WorldSetting).order_by(WorldSetting.category, WorldSetting.name).all()
+        models = _lazy_models()
+        settings = db.query(models.WorldSetting).order_by(models.WorldSetting.category, models.WorldSetting.name).all()
         result = []
         for s in settings:
             result.append({
@@ -151,7 +193,8 @@ def api_settings():
 def api_foreshadowings():
     db = get_db()
     try:
-        fs_list = db.query(Foreshadowing).order_by(Foreshadowing.first_appearance).all()
+        models = _lazy_models()
+        fs_list = db.query(models.Foreshadowing).order_by(models.Foreshadowing.first_appearance).all()
         result = []
         for f in fs_list:
             result.append({
@@ -172,7 +215,8 @@ def api_foreshadowings():
 def api_timeline():
     db = get_db()
     try:
-        entries = db.query(TimelineEntry).order_by(TimelineEntry.sort_order).all()
+        models = _lazy_models()
+        entries = db.query(models.TimelineEntry).order_by(models.TimelineEntry.sort_order).all()
         result = []
         for t in entries:
             result.append({
@@ -190,7 +234,8 @@ def api_timeline():
 def api_conflicts():
     db = get_db()
     try:
-        conflicts = db.query(SettingConflict).order_by(SettingConflict.created_at.desc()).all()
+        models = _lazy_models()
+        conflicts = db.query(models.SettingConflict).order_by(models.SettingConflict.created_at.desc()).all()
         result = []
         for c in conflicts:
             result.append({
@@ -229,21 +274,21 @@ def api_submit():
     try:
         if mode == "quick":
             chapter_texts = _parse_chapters(content)
-            result_text = process_chapters_quick(db, chapter_texts, chapter_range, CONFIG_PATH)
+            result_text = _lazy_parser().process_chapters_quick(db, chapter_texts, chapter_range, CONFIG_PATH)
             db_ops = None
         else:
             chapter_texts = _parse_chapters(content)
-            result_text, db_ops = process_chapters(
+            result_text, db_ops = _lazy_parser().process_chapters(
                 db, chapter_texts, chapter_range, notes, CONFIG_PATH
             )
 
         # 应用数据库操作
         stats = {}
         if db_ops:
-            stats = apply_db_operations(db, db_ops)
+            stats = _lazy_applier().apply_db_operations(db, db_ops)
 
         # 保存会话记录
-        create_session_record(db, chapter_range, result_text,
+        _lazy_repo().create_session_record(db, chapter_range, result_text,
                               json.dumps(db_ops, ensure_ascii=False) if db_ops else "{}")
         db.commit()
 
@@ -308,8 +353,8 @@ def api_import():
 
     # 检测数据库中已有数据的最大章节号，实现断点续传
     db_check = get_db()
-    from db.models import Event
-    existing_events = db_check.query(Event).all()
+    models = _lazy_models()
+    existing_events = db_check.query(models.Event).all()
     max_chapter = 0
     for evt in existing_events:
         end = evt.chapter_end or evt.chapter_start
@@ -346,15 +391,15 @@ def api_import():
             last_error = None
             for attempt in range(2):  # 最多重试1次
                 try:
-                    result_text, db_ops = process_chapters(
+                    result_text, db_ops = _lazy_parser().process_chapters(
                         db, batch, ch_range, notes, CONFIG_PATH
                     )
                     stats = {}
                     if db_ops:
-                        stats = apply_db_operations(db, db_ops)
+                        stats = _lazy_applier().apply_db_operations(db, db_ops)
                         for k in total_stats:
                             total_stats[k] += stats.get(k, 0)
-                    create_session_record(db, ch_range, result_text,
+                    _lazy_repo().create_session_record(db, ch_range, result_text,
                                           json.dumps(db_ops, ensure_ascii=False) if db_ops else "{}")
                     db.commit()
                     all_results.append({

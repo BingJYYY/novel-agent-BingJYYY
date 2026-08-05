@@ -66,7 +66,7 @@ def create_llm(config: dict) -> ChatOpenAI:
 
 
 def parse_llm_response(response_text: str) -> Tuple[str, Optional[dict]]:
-    json_pattern = r'```json\s*\n(.*?)\n```'
+    json_pattern = r'```json\s*\n(.*?)```'
     matches = list(re.finditer(json_pattern, response_text, re.DOTALL))
 
     db_ops = None

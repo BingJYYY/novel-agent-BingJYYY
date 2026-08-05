@@ -36,7 +36,7 @@ def _ensure_str(v):
 def apply_db_operations(db: Session, db_ops: dict) -> dict:
     import traceback
 
-    stats = {"added": 0, "updated": 0, "archived": 0, "locked": 0, "conflicts": 0}
+    stats = {"added": 0, "updated": 0, "archived": 0, "locked": 0, "conflicts": 0, "errors": []}
 
     ops = db_ops.get("db_operations", db_ops)
     if not ops or not isinstance(ops, dict):
@@ -55,6 +55,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["added"] += 1
         except Exception as e:
             print(f"[WARN] 添加角色失败: {e}")
+            stats["errors"].append(f"添加角色失败: {e}")
             traceback.print_exc()
 
     for event_data in _ensure_list(add.get("events")):
@@ -64,6 +65,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["added"] += 1
         except Exception as e:
             print(f"[WARN] 添加事件失败: {e}")
+            stats["errors"].append(f"添加事件失败: {e}")
             traceback.print_exc()
 
     for ws_data in _ensure_list(add.get("world_settings")):
@@ -72,6 +74,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["added"] += 1
         except Exception as e:
             print(f"[WARN] 添加设定失败: {e}")
+            stats["errors"].append(f"添加设定失败: {e}")
             traceback.print_exc()
 
     for fs_data in _ensure_list(add.get("foreshadowings")):
@@ -80,6 +83,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["added"] += 1
         except Exception as e:
             print(f"[WARN] 添加伏笔失败: {e}")
+            stats["errors"].append(f"添加伏笔失败: {e}")
             traceback.print_exc()
 
     for tl_data in _ensure_list(add.get("timeline")):
@@ -88,6 +92,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["added"] += 1
         except Exception as e:
             print(f"[WARN] 添加时间线失败: {e}")
+            stats["errors"].append(f"添加时间线失败: {e}")
             traceback.print_exc()
 
     for cf_data in _ensure_list(add.get("conflicts")):
@@ -96,6 +101,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["conflicts"] += 1
         except Exception as e:
             print(f"[WARN] 添加冲突记录失败: {e}")
+            stats["errors"].append(f"添加冲突记录失败: {e}")
             traceback.print_exc()
 
     # ---- UPDATE ----
@@ -116,6 +122,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
                 stats["updated"] += 1
         except Exception as e:
             print(f"[WARN] 更新角色失败: {e}")
+            stats["errors"].append(f"更新角色失败: {e}")
             traceback.print_exc()
 
     for rel_upd in _ensure_list(update.get("relationships")):
@@ -140,6 +147,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
                 stats["updated"] += 1
         except Exception as e:
             print(f"[WARN] 更新关系失败: {e}")
+            stats["errors"].append(f"更新关系失败: {e}")
             traceback.print_exc()
 
     for ws_upd in _ensure_list(update.get("settings")):
@@ -158,6 +166,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
                 stats["updated"] += 1
         except Exception as e:
             print(f"[WARN] 更新设定失败: {e}")
+            stats["errors"].append(f"更新设定失败: {e}")
             traceback.print_exc()
 
     for fs_upd in _ensure_list(update.get("foreshadowings")):
@@ -171,6 +180,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["updated"] += 1
         except Exception as e:
             print(f"[WARN] 更新伏笔失败: {e}")
+            stats["errors"].append(f"更新伏笔失败: {e}")
             traceback.print_exc()
 
     for evt_upd in _ensure_list(update.get("events")):
@@ -182,9 +192,10 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             event = db.query(Event).filter(Event.chapter_start == chapter_start).first()
             if event and hasattr(event, field):
                 setattr(event, field, _ensure_str(new_val))
-            stats["updated"] += 1
+                stats["updated"] += 1
         except Exception as e:
             print(f"[WARN] 更新事件失败: {e}")
+            stats["errors"].append(f"更新事件失败: {e}")
             traceback.print_exc()
 
     # ---- ARCHIVE ----
@@ -197,6 +208,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
                 stats["archived"] += 1
         except Exception as e:
             print(f"[WARN] 归档角色失败: {e}")
+            stats["errors"].append(f"归档角色失败: {e}")
             traceback.print_exc()
     for fs_name in _ensure_list(archive.get("foreshadowings")):
         try:
@@ -206,6 +218,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
                 stats["archived"] += 1
         except Exception as e:
             print(f"[WARN] 归档伏笔失败: {e}")
+            stats["errors"].append(f"归档伏笔失败: {e}")
             traceback.print_exc()
 
     # ---- LOCK ----
@@ -220,6 +233,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["locked"] += 1
         except Exception as e:
             print(f"[WARN] 锁定事件失败: {e}")
+            stats["errors"].append(f"锁定事件失败: {e}")
             traceback.print_exc()
 
     # ---- CONFLICTS ----
@@ -229,6 +243,7 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
             stats["conflicts"] += 1
         except Exception as e:
             print(f"[WARN] 添加冲突失败: {e}")
+            stats["errors"].append(f"添加冲突失败: {e}")
             traceback.print_exc()
 
     return stats
