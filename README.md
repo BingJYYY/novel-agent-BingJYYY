@@ -84,11 +84,15 @@ pip install -r requirements.txt
 
 ### 第三步：配置 API Key
 
-**方式一：仪表盘内直接设置（推荐，打开页面就能填）**
+**方式一：弹窗直接填写（推荐，启动后自动弹出）**
 
-启动后打开浏览器，点击右上角 **⚙️ 设置** 标签页，填入 API Key 和模型，保存即可。
+双击 `启动.bat` 或运行 `python main.py serve`，页面会自动弹出配置弹窗，选择服务商、填入 API Key 即可。
 
-**方式二：设置环境变量（无需修改文件）**
+**方式二：仪表盘设置页**
+
+启动后点击右上角 **⚙️ 设置** 标签页，也可以修改配置。
+
+**方式三：设置环境变量**
 
 ```bash
 # Windows (PowerShell)
@@ -103,17 +107,10 @@ export DEEPSEEK_API_KEY=sk-你的密钥
 
 支持的变量名：`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY`（通义） / `ZHIPU_API_KEY`（智谱） / `OPENAI_API_KEY`
 
-**方式二：通过命令行**
+**方式四：命令行**
 
 ```bash
 python main.py config --api-key sk-你的密钥
-```
-
-**方式三：编辑配置文件**
-
-```bash
-copy config.example.yaml config.yaml
-# 然后编辑 config.yaml 填入 API Key
 ```
 
 > **怎么获取 API Key？**
@@ -131,7 +128,7 @@ copy config.example.yaml config.yaml
 python main.py serve
 ```
 
-然后打开浏览器访问 `http://127.0.0.1:5000`。
+然后打开浏览器访问 `http://127.0.0.1:15000`。
 
 ---
 
@@ -203,13 +200,7 @@ python main.py query full
 
 ## 自定义提示词
 
-`extractor/prompt.py` 文件中的 `SYSTEM_PROMPT` 变量控制着 AI 的分析行为。
-
-默认只包含一个基础框架。你可以把自己的提示词规则粘贴进去，比如：
-- 分析的重点放在哪些方面
-- 输出的详细程度
-- 角色、事件的命名规则
-- 特殊的分类标准
+提示词已内置在 `extractor/prompt.py` 中，开箱即用。如果你有特殊需求，可以直接编辑 `SYSTEM_PROMPT` 变量，调整分析规则、输出格式等。
 
 提示词越详细，分析结果越符合你的需求。
 
@@ -246,7 +237,7 @@ A: 重新导入同一个文件，系统会自动跳过已分析的章节，从�
 A: 可以。点击右上角小说名，新建小说即可。每部小说独立一个数据库。
 
 **Q: 分析结果不对怎么办？**
-A: 可以调整 `extractor/prompt.py` 中的提示词规则，让 AI 更符合你的分析习惯。
+A: 可以编辑 `extractor/prompt.py` 中的提示词，调整分析规则让 AI 更符合你的习惯。
 
 **Q: 数据存在哪？**
 A: SQLite 数据库文件（`novel.db` 或 `novel-小说名.db`），可用 [DB Browser for SQLite](https://sqlitebrowser.org/) 直接打开查看。
