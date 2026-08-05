@@ -95,7 +95,8 @@ def create_llm(config: dict) -> ChatOpenAI:
 
 
 def parse_llm_response(response_text: str) -> Tuple[str, Optional[dict]]:
-    json_pattern = r'```json\s*\n(.*?)```'
+    # 主策略：匹配 ```json ... ``` 代码块
+    json_pattern = r'```json\s*(.*?)```'
     matches = list(re.finditer(json_pattern, response_text, re.DOTALL))
 
     db_ops = None
@@ -104,34 +105,39 @@ def parse_llm_response(response_text: str) -> Tuple[str, Optional[dict]]:
     if matches:
         last_match = matches[-1]
         try:
-            json_str = last_match.group(1)
+            json_str = last_match.group(1).strip()
             db_ops = json.loads(json_str)
             human_output = response_text[:last_match.start()].strip()
         except json.JSONDecodeError:
             pass
-    else:
-        brace_pattern = r'\{[^{}]*"db_operations"[^{}]*\}'
-        brace_matches = list(re.finditer(brace_pattern, response_text, re.DOTALL))
-        if brace_matches:
-            last = brace_matches[-1]
-            start = last.start()
-            depth = 0
-            end = start
-            for i, ch in enumerate(response_text[start:], start):
-                if ch == '{':
-                    depth += 1
-                elif ch == '}':
-                    depth -= 1
-                    if depth == 0:
-                        end = i + 1
-                        break
-            if end > start:
-                try:
-                    json_str = response_text[start:end]
-                    db_ops = json.loads(json_str)
-                    human_output = response_text[:start].strip()
-                except json.JSONDecodeError:
-                    pass
+
+    # 兜底策略：在全文搜索 "db_operations" 键，由它定位到外层 JSON
+    if db_ops is None:
+        key_match = re.search(r'"db_operations"\s*:', response_text)
+        if key_match:
+            start = response_text.rfind('{', 0, key_match.start())
+            if start >= 0:
+                depth = 0
+                end = start
+                for i, ch in enumerate(response_text[start:], start):
+                    if ch == '{':
+                        depth += 1
+                    elif ch == '}':
+                        depth -= 1
+                        if depth == 0:
+                            end = i + 1
+                            break
+                if end > start:
+                    try:
+                        json_str = response_text[start:end]
+                        db_ops = json.loads(json_str)
+                        human_output = response_text[:start].strip()
+                    except json.JSONDecodeError:
+                        pass
+
+    if db_ops is None:
+        print("[WARN] parse_llm_response: 未能从 LLM 响应中提取 JSON。原始响应前 500 字符：")
+        print(response_text[:500])
 
     return human_output, db_ops
 

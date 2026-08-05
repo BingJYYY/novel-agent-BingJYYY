@@ -49,6 +49,10 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
         try:
             aliases = _ensure_list(char_data.pop("aliases", []))
             name = char_data.pop("name", "未知角色")
+            # 将 list/dict 类型字段转为 JSON 字符串，避免 SQLite 绑定错误
+            for k, v in list(char_data.items()):
+                if isinstance(v, (list, dict)):
+                    char_data[k] = json.dumps(v, ensure_ascii=False)
             char = upsert_character(db, name, **char_data)
             for alias in aliases:
                 add_character_alias(db, char.id, _ensure_str(alias))
@@ -79,6 +83,9 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
 
     for fs_data in _ensure_list(add.get("foreshadowings")):
         try:
+            for k, v in list(fs_data.items()):
+                if isinstance(v, (list, dict)):
+                    fs_data[k] = json.dumps(v, ensure_ascii=False)
             upsert_foreshadowing(db, **fs_data)
             stats["added"] += 1
         except Exception as e:
