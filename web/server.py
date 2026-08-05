@@ -410,7 +410,7 @@ def _parse_chapters(content: str) -> list:
     """从文本中解析章节"""
     import re
     chapter_pattern = re.compile(
-        r'(?:^|\n)(?:===?\s*)?第(\d+)(?:[-–—](\d+))?章[ \t]*(.*?)\s*\n',
+        r'(?:^|\n)(?:===?\s*)?第(\d+)(?:[-–—](\d+))?章[ \t]*(.*?)\s*?\n',
         re.MULTILINE
     )
     matches = list(chapter_pattern.finditer(content))
@@ -498,12 +498,15 @@ def api_import():
                         stats = _lazy_applier().apply_db_operations(db, db_ops)
                         for k in total_stats:
                             total_stats[k] += stats.get(k, 0)
+                    else:
+                        print(f"  [警告] 第 {idx+1}/{len(batches)} 批 {ch_range} 未提取到数据库操作，请检查 LLM 输出")
                     _lazy_repo().create_session_record(db, ch_range, result_text,
                                           json.dumps(db_ops, ensure_ascii=False) if db_ops else "{}")
                     db.commit()
                     all_results.append({
                         "batch": idx + 1, "total_batches": len(batches),
                         "chapter_range": ch_range, "result": result_text, "stats": stats,
+                        "no_db_ops": db_ops is None,
                     })
                     print(f"  第 {idx+1}/{len(batches)} 批完成：{ch_range}")
                     success = True
@@ -523,7 +526,7 @@ def api_import():
                 all_results.append({
                     "batch": idx + 1, "total_batches": len(batches),
                     "chapter_range": ch_range, "result": "", "stats": {},
-                    "error": str(last_error),
+                    "error": str(last_error), "no_db_ops": True,
                 })
 
         return jsonify({

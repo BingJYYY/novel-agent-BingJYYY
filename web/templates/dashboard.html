@@ -458,13 +458,34 @@
                     progressFill.style.width = '100%';
                     progressText.textContent = `完成！共 ${data.total_chapters} 章，${data.total_batches} 批`;
 
+                    // 检查是否有数据实际写入
+                    const totalOps = data.total_stats.added + data.total_stats.updated + data.total_stats.archived + data.total_stats.locked + data.total_stats.conflicts;
+                    const allNoDbOps = data.results.every(r => r.no_db_ops);
+
                     // 显示汇总
-                    let summaryHtml = `<div style="margin-top:16px;padding:12px;background:#1a2a1a;border-radius:6px;color:#4ade80;">
+                    let summaryColor = totalOps > 0 ? '#4ade80' : '#fbbf24';
+                    let summaryBg = totalOps > 0 ? '#1a2a1a' : '#2a2a1a';
+                    let summaryHtml = `<div style="margin-top:16px;padding:12px;background:${summaryBg};border-radius:6px;color:${summaryColor};">
                         <strong>整本导入完成！</strong> 
                         共 ${data.total_chapters} 章，${data.total_batches} 批次 |
                         新增 ${data.total_stats.added} | 更新 ${data.total_stats.updated} | 
                         归档 ${data.total_stats.archived} | 锁定 ${data.total_stats.locked}
                     </div>`;
+
+                    if (allNoDbOps) {
+                        summaryHtml += `<div style="margin-top:8px;padding:12px;background:#3a2a1a;border-radius:6px;color:#fbbf24;border:1px solid #5a4a1a;">
+                            <strong>⚠️ 警告：LLM 未返回有效的数据库操作 JSON</strong><br>
+                            <span style="font-size:13px;color:#888;">分析文本已生成，但未提取到结构化数据。请检查：<br>
+                            1. config.yaml 中 API Key 是否正确<br>
+                            2. LLM 服务是否正常响应<br>
+                            3. 章节内容是否包含可提取的角色/事件/设定信息</span>
+                        </div>`;
+                    } else if (totalOps === 0) {
+                        summaryHtml += `<div style="margin-top:8px;padding:12px;background:#2a2a1a;border-radius:6px;color:#fbbf24;border:1px solid #5a4a1a;">
+                            <strong>⚠️ 注意：本次导入未提取到新数据</strong><br>
+                            <span style="font-size:13px;color:#888;">可能原因：章节内容中无新增角色/事件/设定，或 LLM 返回数据为空</span>
+                        </div>`;
+                    }
 
                     // 折叠显示各批次结果
                     data.results.forEach((r, i) => {

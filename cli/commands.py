@@ -251,7 +251,7 @@ def config(provider, api_key, model, show):
 def _parse_chapters(content: str) -> list:
     import re
     chapter_pattern = re.compile(
-        r'(?:^|\n)(?:===?\s*)?第(\d+)(?:[-–—](\d+))?章\s*(?:===?)?\s*\n',
+        r'(?:^|\n)(?:===?\s*)?第(\d+)(?:[-–—](\d+))?章\s*(?:===?)?\s*?\n',
         re.MULTILINE
     )
     matches = list(chapter_pattern.finditer(content))
