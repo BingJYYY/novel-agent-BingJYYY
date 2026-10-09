@@ -1,30 +1,34 @@
-# 📖 网文动态大纲智能体（BJYYY 改进版）
+<div align="center">
 
-> 本项目是 [liu220738-sys/novel-agent-release](https://github.com/liu220738-sys/novel-agent-release) 的改进分支。
-> 原作者：[liu220738-sys](https://github.com/liu220738-sys) · 本分支改进者：[BingJYYY](https://github.com/BingJYYY)
-> 完整改动见 [CHANGELOG.md](./CHANGELOG.md)
+# 📖 网文动态大纲智能体
+### Novel Outline Agent
 
-一个专为长期连载小说设计的 AI 智能体，帮你自动提取角色、事件、世界观、伏笔，维护动态大纲数据库。
+**用 AI 自动分析网文章节，提取动态大纲、人物关系、伏笔与冲突。**
+
+[![release](https://img.shields.io/github/v/release/BingJYYY/novel-agent-BingJYYY)](https://github.com/BingJYYY/novel-agent-BingJYYY/releases)
+[![License](https://img.shields.io/github/license/BingJYYY/novel-agent-BingJYYY)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#-环境要求)
+
+原作者：[liu220738-sys/novel-agent-release](https://github.com/liu220738-sys/novel-agent-release) · 改进与发布：[BingJYYY](https://github.com/BingJYYY/novel-agent-BingJYYY)
+
+</div>
 
 ---
 
+一个专为长期连载小说设计的 AI 智能体，帮你自动提取角色、事件、世界观、伏笔，维护动态大纲数据库。
+
 ## 它能干什么？
 
-写小说或拆书时，几百章之后，最头疼的是什么？忘了某个角色第几章出场、忘了某个伏笔埋了没埋、忘了主角什么时候升的级。
-
-这个工具就是帮你解决这些问题的：
+写小说或拆书时，几百章之后最头疼的是什么？忘了某个角色第几章出场、忘了某个伏笔埋了没埋、忘了主角什么时候升的级。这个工具就是帮你解决这些问题的：
 
 - **提交新章节** → AI 自动分析，提取角色、事件、设定、伏笔
 - **整本导入** → 把 txt 文件丢进去，自动分章逐批分析，几百章的书几十分钟搞定
 - **实时查看** → 浏览器（或桌面窗口）里随时查看所有角色、事件、伏笔、关系、时间线
-- **增量更新** → 每次只分析新内容，不会重复处理旧章节
+- **增量更新 / 断点续传** → 每次只分析新内容；中途中断后重启会从上次成功的章节继续，不会重头再来
 - **设定冲突检测** → 自动检查前后矛盾的地方，提醒你注意
 
----
-
 ## 本分支相比原版的改进
-
-详细见 [CHANGELOG.md](./CHANGELOG.md)，简要列表：
 
 | # | 改进点 | 说明 |
 |---|--------|------|
@@ -34,120 +38,140 @@
 | 4 | 断点续传修复 | 改为逐章判断 events 表，跳过已存在章节的同时**自动填补缺口**（不再因 max_chapter 误判而漏掉章节） |
 | 5 | applier 类型校验 | 写入前校验 chapter_start / chapter_end 必须能转 int，丢弃损坏的字段而不是污染数据库 |
 | 6 | 诊断.bat | 一键检测 Python 装没装、依赖齐不齐、WebView2 装没装 |
-| 7 | CLI 支持 custom provider | python main.py config --provider custom --base-url … --model … --api-key … |
 
----
+## 📦 快速开始
 
-## 快速开始
+### 环境要求
 
-### 第一步：安装 Python
+- **Python 3.10+**（推荐 3.11）
+- **Windows 10/11**（自带 WebView2）；macOS / Linux 需自行安装 WebView2 运行时
+- 任意能调用 OpenAI Chat Completions 接口的服务（OpenAI、DeepSeek、智谱、Ollama、月之暗面 等）
 
-需要 Python 3.9+。到 https://www.python.org/downloads/ 下载安装。
-**安装时勾选 "Add Python to PATH"。**
+### 1. 下载与安装依赖
 
-### 第二步：克隆仓库
+前往 [Releases](https://github.com/BingJYYY/novel-agent-BingJYYY/releases) 下载最新 ZIP 并解压，或：
 
-`ash
-git clone https://github.com/BingJYYY/novel-agent-bjyyy.git
-cd novel-agent-bjyyy
-`
+```bash
+git clone https://github.com/BingJYYY/novel-agent-BingJYYY.git
+cd novel-agent-BingJYYY
+```
 
-### 第三步：双击 启动.bat（Windows）
+安装依赖（**必需**，项目使用了 Flask / langchain / pywebview 等第三方库）：
 
-启动.bat 会自动：
-1. 检测 Python 解释器
-2. 安装缺失的依赖
-3. 启动桌面应用
+```bash
+python -m pip install -r requirements.txt
+```
 
-**如果双击后没反应**，请双击 诊断.bat，把输出截图发给开发者。
+> pip 慢？临时用国内镜像：
+> ```bash
+> python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+> ```
 
-### 第四步：配置 API
+### 2. 配置 API
 
-启动后会自动弹出配置弹窗：
-- **DeepSeek / 通义千问 / 智谱 GLM / OpenAI**：选对应服务商，填 API Key
-- **其他 OpenAI 兼容服务（Moonshot / Ollama / 代理）**：选「自定义 (OpenAI 兼容)」，填 base_url + 模型名 + API Key
-- 填完点「**测试连接**」验证配置正确，再保存
+复制示例配置：
 
-> 怎么获取 API Key？
-> - DeepSeek：https://platform.deepseek.com/
-> - 通义千问：https://bailian.console.aliyun.com/
-> - 智谱 GLM：https://open.bigmodel.cn/
-> - 月之暗面：https://platform.moonshot.cn/
+```bash
+copy config.example.yaml config.yaml     # Windows
+# 或
+cp config.example.yaml config.yaml       # macOS / Linux
+```
 
-### 第五步：导入小说
+打开 `config.yaml`，填入你的 API Key：
 
-1. 切换到「提交章节」标签
-2. 点击「📂 整本导入」选择 txt 文件
-3. 等待自动分析完成
+```yaml
+provider: openai        # openai / anthropic / azure / custom
+api_key: sk-xxxxxxxxxxxx
+model: gpt-4o-mini
+```
 
-txt 文件需包含「第X章」标记，如 第1章 觉醒日。橙瓜、作家助手等导出的 txt 均可直接使用。
+### 3. 启动
 
----
+**Windows**：直接双击 `启动.bat`
 
-## 命令行使用
+**任意系统**：
 
-`ash
-# 从文件提交章节
-python main.py submit -f chapter.txt -c "第5-7章"
+```bash
+python app.py
+```
 
-# 交互式提交（粘贴正文）
-python main.py submit
+浏览器会自动打开 http://localhost:5000
 
-# 快速阅读（不维护数据库）
-python main.py quick -f chapter.txt
+## 🔧 配置自定义 API（OpenAI 兼容）
 
-# 查看数据库状态
-python main.py query status
+Web UI → 右上角「设置」 → 服务商选 **「自定义 (OpenAI 兼容)」**：
 
-# 查看所有角色 / 事件 / 完整大纲
-python main.py query characters
-python main.py query events
-python main.py query full
-
-# 配置 LLM（含自定义 provider）
-python main.py config --provider deepseek --api-key sk-xxx
-python main.py config --provider custom --base-url https://api.moonshot.cn/v1 --api-key sk-xxx --model moonshot-v1-8k
-
-# 在浏览器中打开仪表盘（不用桌面应用）
-python main.py serve
-`
-
----
-
-## Web 仪表盘标签页
-
-| 标签 | 内容 |
+| 字段 | 示例 |
 |------|------|
-| 提交章节 | 粘贴正文、整本导入 |
-| 概览 | 数据库状态摘要，主角信息 |
-| 角色 | 所有角色卡片，含状态变更历史 |
-| 事件 | 按事件段展示，区分进行中/已完成 |
-| 设定 | 世界观设定，按分类分组 |
-| 伏笔 | 未解决/推进/已回收分类展示 |
-| 时间线 | 按故事时间排序的事件流 |
-| 冲突 | 自动检测到的设定矛盾 |
-| 设置 | LLM 服务商 / API Key / 模型配置 |
+| API Base URL | `https://api.deepseek.com/v1` |
+| API Key | `sk-xxxxxxxxxxxx` |
+| Model | `deepseek-chat` |
 
----
+点 **「测试连接」** 验证配置无误后再保存。
 
-## 故障排查
+支持所有 `/v1/chat/completions` 兼容端点：
+
+- DeepSeek · `https://api.deepseek.com/v1`
+- 智谱 GLM · `https://open.bigmodel.cn/api/paas/v4`
+- 月之暗面 Kimi · `https://api.moonshot.cn/v1`
+- Ollama（本地）· `http://localhost:11434/v1`，**API Key 可留空**
+- SiliconFlow、OpenRouter、自建网关……任何兼容 OpenAI 协议的服务都行
+
+## 🛠️ 故障排查
+
+启动报错或分析卡住？把诊断输出复制给 AI 助手（**Codex / DeepSeek / Claude / ChatGPT** 等），它能直接帮你定位问题：
+
+**Windows**：双击 `诊断.bat`，它会输出 Python 版本、依赖、WebView2 等检测结果。
+
+**任意系统**：
+
+```bash
+python -c "import sys, flask, yaml, requests, webview; print(sys.version)"
+```
+
+把下面几样贴给 AI 助手即可：
+
+1. 完整的报错堆栈（终端或弹窗里那段红色文字）
+2. `诊断.bat` 的输出
+3. 你的操作系统 / Python 版本
+4. 你想实现的目标
+
+> 💡 **不需要**找"开发者"或"原作者"——AI 助手拿到以上信息后通常一两轮对话就能定位到具体文件和行号。
 
 | 现象 | 解决方法 |
 |------|---------|
-| 双击 启动.bat 没反应 | 跑 诊断.bat，看 Python / 依赖 / WebView2 哪个出问题 |
-| TypeError: '>' not supported between instances of 'str' and 'int' | 升级到本分支，旧版会在 chapter_end 损坏时崩溃；本分支已修复 |
+| 双击 `启动.bat` 没反应 | 跑 `诊断.bat`，看 Python / 依赖 / WebView2 哪个出问题 |
+| `TypeError: '>' not supported between instances of 'str' and 'int'` | 升级到本分支；旧版在 chapter_end 损坏时会崩溃，本分支已修复 |
 | 整本导入后看不到数据，但章节数显示正常 | 在「设置」里点「测试连接」，看是不是 base_url / model 配错 |
 | 断网 / API 限流 | 单批失败会自动重试 1 次；整本导入可重新触发，已成功章节不会重复 |
 | pywebview 启动闪退 | 安装 Edge WebView2 运行时：https://developer.microsoft.com/microsoft-edge/webview2/ |
 
----
+## 📂 项目结构
 
-## 致谢
+```
+novel-agent-BingJYYY/
+├── app.py                  # Web 入口（pywebview 启动 Flask）
+├── 启动.bat                # Windows 一键启动
+├── 诊断.bat                # Windows 一键诊断
+├── config.example.yaml     # 配置示例
+├── requirements.txt        # 依赖列表
+├── web/
+│   ├── server.py           # Flask 路由
+│   └── templates/          # HTML 模板
+├── extractor/
+│   ├── parser.py           # 章节解析 + LLM 调用（多 provider）
+│   └── applier.py          # 分析结果写入数据库
+├── cli/
+│   └── commands.py         # 命令行入口
+└── novel.db                # 运行时数据（分析结果）
+```
 
-- 原项目：[liu220738-sys/novel-agent-release](https://github.com/liu220738-sys/novel-agent-release)
-- 提示词设计、数据库模型、核心提取逻辑来自原作者
-- 本分支的贡献：见 [CHANGELOG.md](./CHANGELOG.md) 的版本记录
+## 🤝 致谢
 
-## License
+本项目基于 [liu220738-sys/novel-agent-release](https://github.com/liu220738-sys/novel-agent-release) 改进。
 
-MIT
+原作者：[liu220738-sys](https://github.com/liu220738-sys) · 改进与发布：[BingJYYY](https://github.com/BingJYYY/novel-agent-BingJYYY)
+
+## 📄 License
+
+本项目使用 **MIT License** —— 详见 [LICENSE](LICENSE) 文件。
