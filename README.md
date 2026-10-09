@@ -5,8 +5,8 @@
 
 **用 AI 自动分析网文章节，提取动态大纲、人物关系、伏笔与冲突。**
 
-[![release](https://img.shields.io/github/v/release/BingJYYY/novel-agent-BingJYYY)](https://github.com/BingJYYY/novel-agent-BingJYYY/releases)
-[![License](https://img.shields.io/github/license/BingJYYY/novel-agent-BingJYYY)](LICENSE)
+[![version](https://img.shields.io/github/v/tag/BingJYYY/novel-agent-BingJYYY?label=version&sort=semver)](https://github.com/BingJYYY/novel-agent-BingJYYY/tags)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](#-环境要求)
 
@@ -24,7 +24,7 @@
 
 - **提交新章节** → AI 自动分析，提取角色、事件、设定、伏笔
 - **整本导入** → 把 txt 文件丢进去，自动分章逐批分析，几百章的书几十分钟搞定
-- **实时查看** → 浏览器（或桌面窗口）里随时查看所有角色、事件、伏笔、关系、时间线
+- **实时查看** → 桌面窗口（或浏览器）里随时查看所有角色、事件、伏笔、关系、时间线
 - **增量更新 / 断点续传** → 每次只分析新内容；中途中断后重启会从上次成功的章节继续，不会重头再来
 - **设定冲突检测** → 自动检查前后矛盾的地方，提醒你注意
 
@@ -44,10 +44,10 @@
 ### 环境要求
 
 - **Python 3.10+**（推荐 3.11）
-- **Windows 10/11**（自带 WebView2）；macOS / Linux 需自行安装 WebView2 运行时
+- **Windows 10/11**（自带 WebView2 即可，无需额外安装浏览器）；macOS / Linux 需自行安装 WebView2 运行时
 - 任意能调用 OpenAI Chat Completions 接口的服务（OpenAI、DeepSeek、智谱、Ollama、月之暗面 等）
 
-### 1. 下载与安装依赖
+### 1. 下载
 
 前往 [Releases](https://github.com/BingJYYY/novel-agent-BingJYYY/releases) 下载最新 ZIP 并解压，或：
 
@@ -56,66 +56,55 @@ git clone https://github.com/BingJYYY/novel-agent-BingJYYY.git
 cd novel-agent-BingJYYY
 ```
 
-安装依赖（**必需**，项目使用了 Flask / langchain / pywebview 等第三方库）：
+### 2. 一键启动
+
+> 第一次双击 `启动.bat` 时它会自动检测 Python 并安装缺失的依赖，**不需要你手动 `pip install`**。装完后会弹出桌面应用窗口。
+
+**Windows**（推荐）：双击 `启动.bat`
+
+**其他系统**：在终端里执行
 
 ```bash
 python -m pip install -r requirements.txt
-```
-
-> pip 慢？临时用国内镜像：
-> ```bash
-> python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
-> ```
-
-### 2. 配置 API
-
-复制示例配置：
-
-```bash
-copy config.example.yaml config.yaml     # Windows
-# 或
-cp config.example.yaml config.yaml       # macOS / Linux
-```
-
-打开 `config.yaml`，填入你的 API Key：
-
-```yaml
-provider: openai        # openai / anthropic / azure / custom
-api_key: sk-xxxxxxxxxxxx
-model: gpt-4o-mini
-```
-
-### 3. 启动
-
-**Windows**：直接双击 `启动.bat`
-
-**任意系统**：
-
-```bash
 python app.py
 ```
 
-浏览器会自动打开 http://localhost:5000
+> 注：macOS / Linux 上 pywebview 依赖 GTK / WebKit，配置比 Windows 麻烦。本项目主要在 Windows 上验证，跨平台用户请自测或参考 `启动.bat` 的步骤改写为 shell 脚本。
 
-## 🔧 配置自定义 API（OpenAI 兼容）
+### 3. 配置 API（首次启动）
 
-Web UI → 右上角「设置」 → 服务商选 **「自定义 (OpenAI 兼容)」**：
+应用启动后会自动弹出**首次配置窗口**，选服务商 + 填 API Key 即可：
 
-| 字段 | 示例 |
-|------|------|
-| API Base URL | `https://api.deepseek.com/v1` |
-| API Key | `sk-xxxxxxxxxxxx` |
-| Model | `deepseek-chat` |
+| 服务商 | 配置 | 备注 |
+|--------|------|------|
+| DeepSeek | 选「DeepSeek」→ 填 API Key | 模型默认 `deepseek-chat` |
+| 通义千问 / 智谱 GLM / OpenAI | 对应选 → 填 API Key | 模型用默认值 |
+| Moonshot / Ollama / 任意代理 | 选「**自定义 (OpenAI 兼容)**」→ 填 **接口地址 (base_url)** + **模型名** + API Key | Ollama 的 API Key 可留空 |
 
-点 **「测试连接」** 验证配置无误后再保存。
+点 **「💾 保存并开始使用」** 后窗口切换到主仪表盘。以后改配置：右上角「⚙️ 设置」tab。
 
-支持所有 `/v1/chat/completions` 兼容端点：
+> 已通过环境变量设置 API Key（`DEEPSEEK_API_KEY` / `OPENAI_API_KEY` 等）？弹窗里点「跳过」即可。
 
-- DeepSeek · `https://api.deepseek.com/v1`
-- 智谱 GLM · `https://open.bigmodel.cn/api/paas/v4`
-- 月之暗面 Kimi · `https://api.moonshot.cn/v1`
-- Ollama（本地）· `http://localhost:11434/v1`，**API Key 可留空**
-- SiliconFlow、OpenRouter、自建网关……任何兼容 OpenAI 协议的服务都行
+## 🔧 常用 OpenAI 兼容服务示例
+
+| 服务 | base_url | 说明 |
+|------|----------|------|
+| DeepSeek | `https://api.deepseek.com/v1` | 模型 `deepseek-chat`，国内友好 |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | 模型 `glm-4-flash` 等 |
+| 月之暗面 Kimi | `https://api.moonshot.cn/v1` | 模型 `moonshot-v1-8k` |
+| Ollama（本地） | `http://localhost:11434/v1` | API Key 留空，模型名 = 你 `ollama pull` 下来的 |
+| SiliconFlow | `https://api.siliconflow.cn/v1/v1` | 多种开源模型 |
+| OpenRouter | `https://openrouter.ai/api/v1` | 聚合多家模型 |
+
+> 选「自定义」后右上角**测试连接**按钮能立刻验证 base_url / model / key 配的对不对。
+
+## 📖 导入小说
+
+1. 启动后默认在「✏️ 提交章节」tab
+2. 点 **「📂 整本导入」** 选 txt 文件
+3. 工具会按「第X章」自动切分，逐批调 AI 分析
+
+txt 需包含「第X章」标记（橙瓜、作家助手等导出的 txt 均可直接用）。分析过程可以随时关闭窗口，下次启动会从上次成功处继续。
 
 ## 🛠️ 故障排查
 
@@ -150,14 +139,14 @@ python -c "import sys, flask, yaml, requests, webview; print(sys.version)"
 
 ```
 novel-agent-BingJYYY/
-├── app.py                  # Web 入口（pywebview 启动 Flask）
-├── 启动.bat                # Windows 一键启动
+├── app.py                  # 桌面入口（pywebview + Flask）
+├── 启动.bat                # Windows 一键启动（自动装依赖）
 ├── 诊断.bat                # Windows 一键诊断
-├── config.example.yaml     # 配置示例
+├── config.example.yaml     # 配置示例（实际通过 UI 配置，写入 config.yaml）
 ├── requirements.txt        # 依赖列表
 ├── web/
 │   ├── server.py           # Flask 路由
-│   └── templates/          # HTML 模板
+│   └── templates/          # HTML 模板（dashboard.html 含配置 UI）
 ├── extractor/
 │   ├── parser.py           # 章节解析 + LLM 调用（多 provider）
 │   └── applier.py          # 分析结果写入数据库
