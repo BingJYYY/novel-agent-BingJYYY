@@ -72,16 +72,32 @@ def create_llm(config: dict) -> ChatOpenAI:
         model = zhipu_cfg.get("model", "glm-4")
         temperature = zhipu_cfg.get("temperature", 0.3)
         max_tokens = zhipu_cfg.get("max_tokens", 16000)
+    elif provider == "custom":
+        # 自定义 OpenAI 兼容接口（任意代理/本地/其他厂商）
+        custom_cfg = llm_config.get("custom", {})
+        api_key = api_key or custom_cfg.get("api_key", "")
+        base_url = (custom_cfg.get("base_url", "") or "").strip()
+        if not base_url:
+            raise ValueError(
+                "自定义 provider 必须在 config.yaml 的 llm.custom.base_url 配置接口地址，"
+                "例如 https://api.example.com/v1")
+        model = (custom_cfg.get("model", "") or "").strip() or "gpt-3.5-turbo"
+        temperature = custom_cfg.get("temperature", 0.3)
+        max_tokens = custom_cfg.get("max_tokens", 16000)
+        env_key = ""
     else:
         raise ValueError(f"不支持的 LLM provider: {provider}")
 
-    if not api_key:
+    if not api_key and provider != "custom":
         raise ValueError(
             f"未找到 API Key。请通过以下任一方式设置：\n"
             f"  1. 设置环境变量：set {env_key}=你的key\n"
             f"  2. 在 config.yaml 的 llm.{provider}.api_key 中填入\n"
             f"  3. 运行命令：python main.py config --api-key 你的key"
         )
+    # custom / Ollama 等本地服务允许空 api_key；ChatOpenAI 仍要求非空，所以填占位符
+    if not api_key:
+        api_key = "no-key-required"
 
     return ChatOpenAI(
         api_key=api_key,

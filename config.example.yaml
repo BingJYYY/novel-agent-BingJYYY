@@ -45,3 +45,15 @@ novel:
 # 数据库配置
 database:
   path: "novel.db"
+
+
+  # 自定义 OpenAI 兼容接口（任意 OpenAI 兼容服务商 / 代理 / Ollama 本地服务等）
+  # 在「设置」面板里选 “自定义 (OpenAI 兼容)” 填写，或运行：
+  #   python main.py config --provider custom --base-url https://api.moonshot.cn/v1 --api-key sk-xxx --model moonshot-v1-8k
+  #   python main.py config --provider custom --base-url http://localhost:11434/v1  --model qwen2.5:7b
+  # custom:
+  #   api_key: "your-api-key-here"   # Ollama 等本地服务可填任意非空字符串
+  #   base_url: "https://api.moonshot.cn/v1"
+  #   model: "moonshot-v1-8k"
+  #   temperature: 0.3
+  #   max_tokens: 16000

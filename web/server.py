@@ -4,6 +4,7 @@ Web 仪表盘 —— Flask 实时查看数据库 + 在线提交章节
 
 import json
 import os
+import re
 import sys
 import webbrowser
 import threading
@@ -86,6 +87,22 @@ def _check_first_run():
         print("\n  [提示] 未检测到 API Key，打开后在弹窗中填写即可。\n")
 
 
+
+def _chapter_to_int(v):
+    """Safely coerce a chapter value (int / str like '5' / '第5章' / '5-7') to int."""
+    if v is None:
+        return 0
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str):
+        m = re.search(r"\d+", v)
+        if m:
+            try:
+                return int(m.group(0))
+            except (ValueError, TypeError):
+                return 0
+    return 0
+
 def _load_novels():
     """加载小说列表"""
     try:
@@ -142,6 +159,7 @@ def api_config():
         "config": {
             "provider": provider,
             "model": provider_cfg.get("model", ""),
+            "base_url": provider_cfg.get("base_url", ""),
             "api_key": _mask_key(api_key),
             "has_key": bool(api_key and api_key != "your-api-key-here"),
         }
@@ -150,14 +168,23 @@ def api_config():
 
 @app.route("/api/config", methods=["POST"])
 def api_config_save():
-    """保存配置（API Key 等）"""
+    """保存配置（API Key / base_url / model）"""
     import yaml
     data = request.get_json() or {}
     api_key = (data.get("api_key") or "").strip()
     provider = (data.get("provider") or "deepseek").strip()
-    model = (data.get("model") or "deepseek-chat").strip()
+    model = (data.get("model") or "").strip()
+    base_url = (data.get("base_url") or "").strip()
 
-    if not api_key:
+    if provider not in ("deepseek", "openai", "tongyi", "zhipu", "custom"):
+        return jsonify({"ok": False, "error": f"不支持的 provider: {provider}"})
+
+    if provider == "custom":
+        if not base_url:
+            return jsonify({"ok": False, "error": "自定义 provider 必须填写接口地址 base_url"})
+        if not model:
+            return jsonify({"ok": False, "error": "请填写模型名 model"})
+    elif not api_key:
         return jsonify({"ok": False, "error": "API Key 不能为空"})
 
     try:
@@ -174,11 +201,16 @@ def api_config_save():
     config.setdefault("llm", {})["provider"] = provider
     _cfg_key = "openai" if provider in ("deepseek", "openai") else provider
     config["llm"].setdefault(_cfg_key, {})
-    config["llm"][_cfg_key]["api_key"] = api_key
+    if api_key:
+        config["llm"][_cfg_key]["api_key"] = api_key
     if model:
         config["llm"][_cfg_key]["model"] = model
+    if base_url:
+        config["llm"][_cfg_key]["base_url"] = base_url
     if provider == "deepseek":
-        config["llm"][_cfg_key].setdefault("base_url", "https://api.deepseek.com/v1")
+        config["llm"][_cfg_key].setdefault("temperature", 0.3)
+        config["llm"][_cfg_key].setdefault("max_tokens", 16000)
+    elif provider == "custom":
         config["llm"][_cfg_key].setdefault("temperature", 0.3)
         config["llm"][_cfg_key].setdefault("max_tokens", 16000)
 
@@ -186,6 +218,32 @@ def api_config_save():
         yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
     return jsonify({"ok": True, "message": "配置已保存"})
+
+
+@app.route("/api/test_config", methods=["POST"])
+def api_test_config():
+    """用当前配置做一次最小 LLM 调用，验证 base_url / api_key / model 是否可用"""
+    try:
+        from langchain_core.messages import HumanMessage
+        config = _lazy_parser().load_config(CONFIG_PATH)
+        llm = _lazy_parser().create_llm(config)
+        resp = llm.invoke([HumanMessage(content="ping")])
+        text = resp.content if hasattr(resp, "content") else str(resp)
+        return jsonify({
+            "ok": True,
+            "message": "连接成功！",
+            "sample": text[:120] if isinstance(text, str) else str(text)[:120],
+            "provider": config.get("llm", {}).get("provider"),
+            "model": getattr(llm, "model_name", None) or config.get("llm", {}).get(config.get("llm", {}).get("provider"), {}).get("model", ""),
+            "base_url": getattr(llm, "base_url", None),
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }), 500
 
 
 def _mask_key(key: str) -> str:
@@ -450,24 +508,43 @@ def api_import():
     if not all_chapters:
         return jsonify({"ok": False, "error": "未检测到章节内容"}), 400
 
-    # 检测数据库中已有数据的最大章节号，实现断点续传
+    # 检测数据库中已有事件的章节集合，实现断点续传
+    # 注意：必须逐章判断，不能只看 max_chapter，否则会跳过章节间的缺口
     db_check = get_db()
     models = _lazy_models()
     existing_events = db_check.query(models.Event).all()
+    covered_chapters = set()
+    bad_chapter_rows = 0
     max_chapter = 0
     for evt in existing_events:
-        end = evt.chapter_end or evt.chapter_start
-        if end and end > max_chapter:
-            max_chapter = end
+        s = _chapter_to_int(evt.chapter_start)
+        e_raw = evt.chapter_end if evt.chapter_end is not None else evt.chapter_start
+        e = _chapter_to_int(e_raw)
+        if e_raw is not None and e == 0 and not str(e_raw).strip().isdigit():
+            bad_chapter_rows += 1
+            continue
+        if e < s:
+            e = s
+        for c in range(s, e + 1):
+            covered_chapters.add(c)
+        if e > max_chapter:
+            max_chapter = e
     db_check.close()
+    if bad_chapter_rows:
+        print(f"  [WARN] Skipped {bad_chapter_rows} events with unparseable chapter numbers.")
+    print(f"  [RESUME] {len(covered_chapters)} chapters already have events; max chapter = {max_chapter}.")
 
-    # 过滤已导入的章节
-    if max_chapter > 0:
-        all_chapters = [(ch, txt) for ch, txt in all_chapters if ch > max_chapter]
-        if not all_chapters:
-            return jsonify({"ok": True, "total_chapters": 0, "total_batches": 0,
-                            "results": [], "total_stats": {"added": 0, "updated": 0, "archived": 0, "locked": 0, "conflicts": 0},
-                            "skipped": f"数据库已覆盖到第{max_chapter}章，无需重复导入"})
+    # 过滤：只保留 events 表中还没有的章节（这样会自动填补缺口）
+    before = len(all_chapters)
+    all_chapters = [(ch, txt) for ch, txt in all_chapters if ch not in covered_chapters]
+    after = len(all_chapters)
+    skipped = before - after
+    if skipped > 0:
+        print(f"  [RESUME] Skipping {skipped} already-covered chapters; {after} to re-analyze.")
+    if not all_chapters:
+        return jsonify({"ok": True, "total_chapters": 0, "total_batches": 0,
+                        "results": [], "total_stats": {"added": 0, "updated": 0, "archived": 0, "locked": 0, "conflicts": 0},
+                        "skipped": f"所有 {before} 个章节在 events 表中均已存在；如需重跑请删除对应 event"})
 
     total_chapters = len(all_chapters)
     batches = []

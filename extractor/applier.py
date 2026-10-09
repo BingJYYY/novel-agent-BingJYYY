@@ -64,6 +64,30 @@ def apply_db_operations(db: Session, db_ops: dict) -> dict:
 
     for event_data in _ensure_list(add.get("events")):
         try:
+            # 类型校验：chapter_start / chapter_end 必须能转为 int
+            # LLM 偶尔会把整段叙述写到 chapter_end 字段，必须丢掉这种脏数据
+            cs_raw = event_data.get("chapter_start")
+            ce_raw = event_data.get("chapter_end")
+            try:
+                event_data["chapter_start"] = int(cs_raw) if cs_raw is not None else None
+            except (TypeError, ValueError):
+                event_data["chapter_start"] = None
+            if ce_raw is None:
+                event_data["chapter_end"] = None
+            else:
+                try:
+                    ce_int = int(ce_raw)
+                    event_data["chapter_end"] = ce_int
+                except (TypeError, ValueError):
+                    # 字符串里抽取首个数字，否则丢弃
+                    import re as _re
+                    m = _re.search(r"\d+", str(ce_raw))
+                    event_data["chapter_end"] = int(m.group(0)) if m else None
+                    if event_data["chapter_end"] is None:
+                        print(f"  [WARN] Dropped corrupted chapter_end for event '{event_data.get('name','?')}': {str(ce_raw)[:60]}")
+            if event_data.get("chapter_start") is None:
+                print(f"  [WARN] Skipping event with missing chapter_start: {event_data.get('name','?')}")
+                continue
             key_results = _ensure_list(event_data.pop("key_results", []))
             create_event(db, key_results=json.dumps(key_results, ensure_ascii=False), **event_data)
             stats["added"] += 1

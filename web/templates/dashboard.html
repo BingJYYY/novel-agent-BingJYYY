@@ -146,16 +146,23 @@
             <div class="subtitle">请填入你的 API Key 以开始使用</div>
             <div class="field">
                 <label>服务商</label>
-                <select id="modal-provider">
+                <select id="modal-provider" onchange="onModalProviderChange()">
                     <option value="deepseek">DeepSeek</option>
                     <option value="tongyi">通义千问</option>
                     <option value="zhipu">智谱 GLM</option>
                     <option value="openai">OpenAI</option>
+                    <option value="custom">自定义 (OpenAI 兼容)</option>
                 </select>
+            </div>
+            <div class="field" id="modal-custom-fields" style="display:none;">
+                <label>接口地址 (base_url)</label>
+                <input type="text" id="modal-baseurl" placeholder="https://api.example.com/v1">
+                <label style="margin-top:10px;">模型名</label>
+                <input type="text" id="modal-model" placeholder="gpt-3.5-turbo / moonshot-v1-8k …">
             </div>
             <div class="field">
                 <label>API Key</label>
-                <input type="password" id="modal-apikey" placeholder="sk-xxxxxxxxxxxxxxxx">
+                <input type="password" id="modal-apikey" placeholder="sk-xxxxxxxxxxxxxxxx 或留空使用环境变量">
                 <div class="env-hint">已通过环境变量设置？<a href="#" onclick="document.getElementById('config-modal').classList.add('hidden');return false;" style="color:#4ade80;">跳过</a></div>
             </div>
             <div class="error-msg" id="modal-error"></div>
@@ -279,11 +286,12 @@
                     <div>
                         <label style="font-size:13px;color:#888;">服务商</label>
                         <div style="display:flex;gap:8px;margin-top:6px;">
-                            <select id="config-provider" style="padding:8px 12px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;flex:1;">
+                            <select id="config-provider" onchange="onConfigProviderChange()" style="padding:8px 12px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;flex:1;">
                                 <option value="deepseek">DeepSeek</option>
                                 <option value="tongyi">通义千问</option>
                                 <option value="zhipu">智谱 GLM</option>
                                 <option value="openai">OpenAI</option>
+                                <option value="custom">自定义 (OpenAI 兼容)</option>
                             </select>
                         </div>
                     </div>
@@ -291,13 +299,20 @@
                         <label style="font-size:13px;color:#888;">模型</label>
                         <input type="text" id="config-model" placeholder="deepseek-chat" style="width:100%;padding:10px 14px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;margin-top:6px;">
                     </div>
+                    <div id="config-baseurl-row">
+                        <label style="font-size:13px;color:#888;">接口地址 (base_url)</label>
+                        <input type="text" id="config-baseurl" placeholder="https://api.example.com/v1" style="width:100%;padding:10px 14px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;margin-top:6px;font-family:monospace;">
+                        <div class="hint" style="margin-top:4px;">仅“自定义”必填，例如 https://api.moonshot.cn/v1、http://localhost:11434/v1 (Ollama)</div>
+                    </div>
                     <div>
                         <label style="font-size:13px;color:#888;">API Key</label>
                         <input type="password" id="config-apikey" placeholder="sk-xxxxxxxx" style="width:100%;padding:10px 14px;background:#0f1923;border:1px solid #2a2a4a;border-radius:6px;color:#e0e0e0;font-size:14px;outline:none;margin-top:6px;font-family:monospace;">
                         <div class="hint" style="margin-top:4px;">支持环境变量，无需填写：DEEPSEEK_API_KEY / DASHSCOPE_API_KEY / ZHIPU_API_KEY / OPENAI_API_KEY</div>
                     </div>
                     <button class="btn btn-submit" onclick="saveConfig()" style="align-self:flex-start;">💾 保存配置</button>
+                    <button class="btn" onclick="testConfig()" style="align-self:flex-start;background:#1a3a2a;color:#4ade80;border:1px solid #2a5a4a;">测试连接</button>
                     <div id="config-msg" style="font-size:13px;padding:8px;border-radius:6px;display:none;"></div>
+                    <div id="config-test" style="font-size:13px;padding:10px;border-radius:6px;display:none;margin-top:6px;"></div>
                 </div>
             </div>
         </div>
@@ -781,45 +796,66 @@
                     document.getElementById('config-provider').value = data.config.provider || 'deepseek';
                     document.getElementById('config-model').value = data.config.model || '';
                     document.getElementById('config-apikey').value = data.config.api_key || '';
+                    document.getElementById('config-baseurl').value = data.config.base_url || '';
                     document.getElementById('config-status').style.display = data.config.has_key ? 'inline-block' : 'none';
                     document.getElementById('config-status-empty').style.display = data.config.has_key ? 'none' : 'inline-block';
-                    // 未配置 API Key 时弹出配置弹窗
+                    onConfigProviderChange();
                     if (!data.config.has_key) {
+                        onModalProviderChange();
                         document.getElementById('config-modal').classList.remove('hidden');
                     }
                 }
             } catch(e) { /* 忽略 */ }
         }
 
+        function onConfigProviderChange() {
+            const p = document.getElementById('config-provider').value;
+            const row = document.getElementById('config-baseurl-row');
+            if (row) row.style.display = (p === 'custom') ? 'block' : 'none';
+        }
+        function onModalProviderChange() {
+            const p = document.getElementById('modal-provider').value;
+            const row = document.getElementById('modal-custom-fields');
+            if (row) row.style.display = (p === 'custom') ? 'block' : 'none';
+        }
+
         async function submitModalConfig() {
             const apiKey = document.getElementById('modal-apikey').value.trim();
             const provider = document.getElementById('modal-provider').value;
             const errorEl = document.getElementById('modal-error');
-            // 根据服务商自动选择默认模型
-            const DEFAULT_MODELS = { deepseek: 'deepseek-chat', tongyi: 'qwen-plus', zhipu: 'glm-4', openai: 'gpt-4o' };
-            const model = DEFAULT_MODELS[provider] || 'deepseek-chat';
+            const DEFAULT_MODELS = { deepseek: 'deepseek-chat', tongyi: 'qwen-plus', zhipu: 'glm-4', openai: 'gpt-4o', custom: '' };
+            const modelEl = document.getElementById('modal-model');
+            const baseUrlEl = document.getElementById('modal-baseurl');
+            const modelInput = (modelEl && modelEl.value.trim()) || DEFAULT_MODELS[provider] || 'deepseek-chat';
+            const baseUrlInput = (baseUrlEl && baseUrlEl.value.trim()) || '';
 
-            if (!apiKey) {
+            if (provider === 'custom') {
+                if (!baseUrlInput) { errorEl.textContent = '请填写接口地址 base_url'; errorEl.style.display = 'block'; return; }
+                if (!modelInput) { errorEl.textContent = '请填写模型名'; errorEl.style.display = 'block'; return; }
+            } else if (!apiKey) {
                 errorEl.textContent = '请输入 API Key';
                 errorEl.style.display = 'block';
                 return;
             }
 
+            const body = { api_key: apiKey, provider: provider, model: modelInput };
+            if (baseUrlInput) body.base_url = baseUrlInput;
+
             try {
                 const resp = await fetch('/api/config', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({api_key: apiKey, provider: provider, model: model})
+                    body: JSON.stringify(body)
                 });
                 const data = await resp.json();
                 if (data.ok) {
                     document.getElementById('config-modal').classList.add('hidden');
-                    // 同步设置页面的值
                     document.getElementById('config-provider').value = provider;
-                    document.getElementById('config-model').value = model;
+                    document.getElementById('config-model').value = modelInput;
+                    if (baseUrlInput) document.getElementById('config-baseurl').value = baseUrlInput;
+                    onConfigProviderChange();
                     document.getElementById('config-status').style.display = 'inline-block';
                     document.getElementById('config-status-empty').style.display = 'none';
-                    // 在页面顶部显示成功提示
                     showToast('配置已保存！请重启服务后生效。');
                 } else {
                     errorEl.textContent = data.error;
@@ -835,15 +871,24 @@
             const apiKey = document.getElementById('config-apikey').value.trim();
             const provider = document.getElementById('config-provider').value;
             const model = document.getElementById('config-model').value.trim();
+            const baseUrl = document.getElementById('config-baseurl').value.trim();
             const msg = document.getElementById('config-msg');
 
-            if (!apiKey && !confirm('API Key 为空。如果使用环境变量则无需填写，确定保存空配置吗？')) return;
+            if (provider === 'custom') {
+                if (!baseUrl) { msg.style.display='block'; msg.style.background='#3a1a1a'; msg.style.color='#f87171'; msg.textContent='❌ 自定义 provider 必须填写 base_url'; return; }
+                if (!model) { msg.style.display='block'; msg.style.background='#3a1a1a'; msg.style.color='#f87171'; msg.textContent='❌ 请填写模型名'; return; }
+            } else if (!apiKey && !confirm('API Key 为空。如果使用环境变量则无需填写，确定保存空配置吗？')) {
+                return;
+            }
+
+            const body = { api_key: apiKey, provider: provider, model: model };
+            if (baseUrl) body.base_url = baseUrl;
 
             try {
                 const resp = await fetch('/api/config', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({api_key: apiKey, provider: provider, model: model})
+                    body: JSON.stringify(body)
                 });
                 const data = await resp.json();
                 msg.style.display = 'block';
@@ -865,6 +910,33 @@
                 msg.textContent = '❌ 保存失败：' + e.message;
             }
         }
+
+        async function testConfig() {
+            const box = document.getElementById('config-test');
+            box.style.display = 'block';
+            box.style.background = '#1a2a3a';
+            box.style.color = '#93c5fd';
+            box.textContent = '正在测试连接...';
+            try {
+                const resp = await fetch('/api/test_config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({}) });
+                const data = await resp.json();
+                const esc = s => String(s||'').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+                if (data.ok) {
+                    box.style.background = '#1a2a1a';
+                    box.style.color = '#4ade80';
+                    box.innerHTML = 'OK ' + esc(data.message) + '<br><span style="font-size:12px;color:#888;">provider=' + esc(data.provider) + ' model=' + esc(data.model) + ' base_url=' + esc(data.base_url) + '</span><br><span style="font-size:12px;color:#888;">reply: ' + esc(data.sample) + '</span>';
+                } else {
+                    box.style.background = '#3a1a1a';
+                    box.style.color = '#f87171';
+                    box.innerHTML = 'FAIL ' + esc(data.error) + '<br><details style="margin-top:6px;"><summary style="cursor:pointer;color:#888;">stack</summary><pre style="font-size:11px;color:#888;white-space:pre-wrap;">' + esc(data.traceback) + '</pre></details>';
+                }
+            } catch(e) {
+                box.style.background = '#3a1a1a';
+                box.style.color = '#f87171';
+                box.textContent = 'FAIL request error: ' + e.message;
+            }
+        }
+
     </script>
 </body>
 </html>

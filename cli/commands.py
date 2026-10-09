@@ -221,11 +221,12 @@ def query(query_type, category, status_filter):
 
 
 @cli.command()
-@click.option("--provider", type=click.Choice(["deepseek", "tongyi", "zhipu"]), help="设置 LLM provider")
+@click.option("--provider", type=click.Choice(["deepseek", "tongyi", "zhipu", "openai", "custom"]), help="设置 LLM provider")
 @click.option("--api-key", help="设置 API Key")
 @click.option("--model", help="设置模型名称")
+@click.option("--base-url", default=None, help="自定义 provider 的接口地址，例如 https://api.moonshot.cn/v1")
 @click.option("--show", is_flag=True, help="显示当前配置")
-def config(provider, api_key, model, show):
+def config(provider, api_key, model, base_url, show):
     """配置 LLM 参数"""
     config_path = "config.yaml"
     cfg = load_config(config_path)
@@ -234,6 +235,26 @@ def config(provider, api_key, model, show):
         return
     if provider:
         cfg.setdefault("llm", {})["provider"] = provider
+    if provider in ("deepseek", "openai"):
+        _cfg_key = "openai"
+    elif provider:
+        _cfg_key = provider
+    else:
+        existing = cfg.get("llm", {}).get("provider", "openai")
+        _cfg_key = "openai" if existing in ("deepseek", "openai") else existing
+    if api_key:
+        cfg.setdefault("llm", {}).setdefault(_cfg_key, {})["api_key"] = api_key
+    if model:
+        cfg.setdefault("llm", {}).setdefault(_cfg_key, {})["model"] = model
+    if base_url:
+        cfg.setdefault("llm", {}).setdefault(_cfg_key, {})["base_url"] = base_url
+    if cfg.get("llm", {}).get("provider") == "custom":
+        if not cfg.get("llm", {}).get("custom", {}).get("base_url"):
+            raise click.UsageError("自定义 provider 必须指定 --base-url")
+        if not cfg.get("llm", {}).get("custom", {}).get("model"):
+            raise click.UsageError("自定义 provider 必须指定 --model")
+    save_config(cfg, config_path)
+    click.echo("配置已更新。"))["provider"] = provider
     if api_key:
         provider_name = cfg.get("llm", {}).get("provider", "openai")
         cfg.setdefault("llm", {}).setdefault(provider_name, {})["api_key"] = api_key

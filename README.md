@@ -1,10 +1,16 @@
-# 📖 网文动态大纲智能体
+# 📖 网文动态大纲智能体（BJYYY 改进版）
 
-> 一个专为长期连载小说设计的 AI 智能体，帮你自动提取角色、事件、世界观、伏笔，维护动态大纲数据库。
+> 本项目是 [liu220738-sys/novel-agent-release](https://github.com/liu220738-sys/novel-agent-release) 的改进分支。
+> 原作者：[liu220738-sys](https://github.com/liu220738-sys) · 本分支改进者：[BingJYYY](https://github.com/BingJYYY)
+> 完整改动见 [CHANGELOG.md](./CHANGELOG.md)
+
+一个专为长期连载小说设计的 AI 智能体，帮你自动提取角色、事件、世界观、伏笔，维护动态大纲数据库。
+
+---
 
 ## 它能干什么？
 
-你写小说或拆书时，最头疼的是什么？几百章之后，忘了某个角色第几章出场、忘了某个伏笔埋了没埋、忘了主角什么时候升的级。
+写小说或拆书时，几百章之后，最头疼的是什么？忘了某个角色第几章出场、忘了某个伏笔埋了没埋、忘了主角什么时候升的级。
 
 这个工具就是帮你解决这些问题的：
 
@@ -16,52 +22,19 @@
 
 ---
 
-## 核心功能一览
+## 本分支相比原版的改进
 
-| 功能 | 说明 |
-|------|------|
-| 📝 提交章节 | 粘贴章节正文，AI 自动分析入库 |
-| 📦 整本导入 | 上传 txt 文件，自动分章批量分析，支持断点续传 |
-| 👤 角色数据库 | 所有角色的等级、身份、阵营、能力、状态变更历史 |
-| 🎬 事件大纲 | 按事件段划分，不是逐章流水账 |
-| 🌍 世界观设定 | 力量体系、势力、地点、规则……按分类整理 |
-| 🔮 伏笔追踪 | 未解决 → 推进 → 已回收，全程追踪 |
-| ⏱️ 时间线 | 故事内部时间顺序，区分明确/相对/模糊时间 |
-| ⚠️ 设定冲突 | 自动检测前后矛盾 |
-| 🔗 关系数据库 | 人物之间的阵营、信任、合作/敌对关系 |
-| 📚 多小说管理 | 同时管理多部小说，数据互不干扰 |
+详细见 [CHANGELOG.md](./CHANGELOG.md)，简要列表：
 
----
-
-## 目录结构
-
-```
-novel-agent/
-├── main.py                     # CLI 命令行入口
-├── app.py                      # 桌面应用启动器
-├── 启动.bat                     # 双击启动（Windows）
-├── requirements.txt            # Python 依赖
-├── config.example.yaml         # 配置模板（也可用环境变量或命令行，无需修改）
-├── .gitignore                  # Git 忽略规则
-│
-├── db/                         # 数据库层
-│   ├── models.py               # 14 张表的 SQLAlchemy 模型
-│   └── repository.py           # 所有 CRUD 操作
-│
-├── extractor/                  # AI 分析层
-│   ├── prompt.py               # 系统提示词（在这里自定义你的分析规则）
-│   ├── parser.py               # LLM 调用与响应解析
-│   └── applier.py              # 将 AI 输出写入数据库
-│
-├── cli/                        # 命令行界面
-│   └── commands.py             # submit / quick / query / config / serve 命令
-│
-└── web/                        # Web 仪表盘
-    ├── server.py               # Flask 后端
-    ├── static/
-    └── templates/
-        └── dashboard.html      # 仪表盘前端页面
-```
+| # | 改进点 | 说明 |
+|---|--------|------|
+| 1 | 启动.bat 闪退修复 | 改用纯 ASCII 编码 + goto 标签重写，解决 cmd 把中文当命令解析的 bug |
+| 2 | 自定义 OpenAI 兼容 API | 配置面板新增「自定义 (OpenAI 兼容)」选项，可填 base_url / model，兼容 Moonshot / Ollama / 任意代理 |
+| 3 | 「测试连接」按钮 | 配置完 API 后一键测试，立刻反馈 base_url / model 是否正确 |
+| 4 | 断点续传修复 | 改为逐章判断 events 表，跳过已存在章节的同时**自动填补缺口**（不再因 max_chapter 误判而漏掉章节） |
+| 5 | applier 类型校验 | 写入前校验 chapter_start / chapter_end 必须能转 int，丢弃损坏的字段而不是污染数据库 |
+| 6 | 诊断.bat | 一键检测 Python 装没装、依赖齐不齐、WebView2 装没装 |
+| 7 | CLI 支持 custom provider | python main.py config --provider custom --base-url … --model … --api-key … |
 
 ---
 
@@ -69,85 +42,51 @@ novel-agent/
 
 ### 第一步：安装 Python
 
-需要 Python 3.10 或以上版本。如果没有，去 [python.org](https://www.python.org/) 下载安装。
+需要 Python 3.9+。到 https://www.python.org/downloads/ 下载安装。
+**安装时勾选 "Add Python to PATH"。**
 
-安装时 **勾选 "Add Python to PATH"**。
+### 第二步：克隆仓库
 
-### 第二步：安装依赖
+`ash
+git clone https://github.com/BingJYYY/novel-agent-bjyyy.git
+cd novel-agent-bjyyy
+`
 
-打开终端（PowerShell 或 CMD），进入项目目录：
+### 第三步：双击 启动.bat（Windows）
 
-```bash
-cd "d:\novel-agent-release"
-pip install -r requirements.txt
-```
+启动.bat 会自动：
+1. 检测 Python 解释器
+2. 安装缺失的依赖
+3. 启动桌面应用
 
-### 第三步：配置 API Key
+**如果双击后没反应**，请双击 诊断.bat，把输出截图发给开发者。
 
-启动后会自动弹出配置弹窗，选择服务商、填入 API Key 即可。
+### 第四步：配置 API
 
-> **怎么获取 API Key？**
-> - DeepSeek：去 [platform.deepseek.com](https://platform.deepseek.com/) 注册，在 API Keys 页面创建
-> - 通义千问：去 [阿里云百炼](https://bailian.console.aliyun.com/) 
-> - 智谱 GLM：去 [open.bigmodel.cn](https://open.bigmodel.cn/)
+启动后会自动弹出配置弹窗：
+- **DeepSeek / 通义千问 / 智谱 GLM / OpenAI**：选对应服务商，填 API Key
+- **其他 OpenAI 兼容服务（Moonshot / Ollama / 代理）**：选「自定义 (OpenAI 兼容)」，填 base_url + 模型名 + API Key
+- 填完点「**测试连接**」验证配置正确，再保存
 
-### 第四步：启动
+> 怎么获取 API Key？
+> - DeepSeek：https://platform.deepseek.com/
+> - 通义千问：https://bailian.console.aliyun.com/
+> - 智谱 GLM：https://open.bigmodel.cn/
+> - 月之暗面：https://platform.moonshot.cn/
 
-**双击 `启动.bat`** 即可。会自动打开桌面应用窗口。
+### 第五步：导入小说
 
-如果想在浏览器中使用，运行：
+1. 切换到「提交章节」标签
+2. 点击「📂 整本导入」选择 txt 文件
+3. 等待自动分析完成
 
-```bash
-python main.py serve
-```
-
-然后打开浏览器访问 `http://127.0.0.1:15000`。
-
----
-
-## 使用方式
-
-### 日常写作使用（写一章分析一章）
-
-1. 打开应用，在「提交章节」页面粘贴你刚写好的章节正文
-2. 填写章节号，如 `第5章`
-3. 首次使用时填一下主角名
-4. 点击「提交分析」，几秒钟后分析结果就出来了
-5. 切换到「角色」「事件」等标签页查看更新
-
-### 拆书使用（分析别人或自己的整本小说）
-
-1. 点击右上角小说名，新建一部小说
-2. 在「提交章节」页面点击「📂 整本导入」
-3. 选择你的 txt 文件，等待自动分析完成
-4. 分析完成后切换到「概览」「角色」等标签页查看结果
-
-> **txt 文件格式要求：** 章节需包含「第X章」标记，如 `第1章 觉醒日`。橙瓜、作家助手等工具导出的 txt 均可直接使用。
-
-### 断点续传
-
-如果导入中断了（关了页面、网络断了），再次导入同一个文件，系统会自动跳过已完成的章节，从中断处继续。
+txt 文件需包含「第X章」标记，如 第1章 觉醒日。橙瓜、作家助手等导出的 txt 均可直接使用。
 
 ---
 
-## Web 仪表盘说明
+## 命令行使用
 
-| 标签页 | 内容 |
-|--------|------|
-| **提交章节** | 粘贴正文、选择文件、整本导入 |
-| **概览** | 数据库状态摘要，主角信息，进行中的事件 |
-| **角色** | 所有角色卡片，支持搜索，含状态变更历史 |
-| **事件** | 按事件段展示，区分进行中/已完成/已锁定 |
-| **设定** | 世界观设定，按分类（力量体系/势力/地点等）分组 |
-| **伏笔** | 未解决/推进/已回收分类展示 |
-| **时间线** | 按故事时间排序的事件流 |
-| **冲突** | 自动检测到的设定矛盾 |
-
----
-
-## 常用命令
-
-```bash
+`ash
 # 从文件提交章节
 python main.py submit -f chapter.txt -c "第5-7章"
 
@@ -160,66 +99,54 @@ python main.py quick -f chapter.txt
 # 查看数据库状态
 python main.py query status
 
-# 查看所有角色
+# 查看所有角色 / 事件 / 完整大纲
 python main.py query characters
-
-# 查看所有事件
 python main.py query events
-
-# 输出完整动态大纲
 python main.py query full
-```
+
+# 配置 LLM（含自定义 provider）
+python main.py config --provider deepseek --api-key sk-xxx
+python main.py config --provider custom --base-url https://api.moonshot.cn/v1 --api-key sk-xxx --model moonshot-v1-8k
+
+# 在浏览器中打开仪表盘（不用桌面应用）
+python main.py serve
+`
 
 ---
 
-## 自定义提示词
+## Web 仪表盘标签页
 
-提示词已内置在 `extractor/prompt.py` 中，开箱即用。如果你有特殊需求，可以直接编辑 `SYSTEM_PROMPT` 变量，调整分析规则、输出格式等。
-
-提示词越详细，分析结果越符合你的需求。
-
----
-
-## 支持的 AI 模型
-
-| 服务商 | 模型 | 费用参考 |
-|--------|------|---------|
-| DeepSeek | deepseek-chat | ¥2/百万 tokens 输入 |
-| 通义千问 | qwen-plus | 略有差异 |
-| 智谱 GLM | glm-4 | 略有差异 |
-
-所有模型都通过 OpenAI 兼容接口调用，部分模型免费额度足够日常使用。
+| 标签 | 内容 |
+|------|------|
+| 提交章节 | 粘贴正文、整本导入 |
+| 概览 | 数据库状态摘要，主角信息 |
+| 角色 | 所有角色卡片，含状态变更历史 |
+| 事件 | 按事件段展示，区分进行中/已完成 |
+| 设定 | 世界观设定，按分类分组 |
+| 伏笔 | 未解决/推进/已回收分类展示 |
+| 时间线 | 按故事时间排序的事件流 |
+| 冲突 | 自动检测到的设定矛盾 |
+| 设置 | LLM 服务商 / API Key / 模型配置 |
 
 ---
 
-## 注意事项
+## 故障排查
 
-1. **不要上传真实 API Key**：`config.yaml` 已在 `.gitignore` 中排除，上传代码时不会包含
-2. **不要上传小说数据**：`.db` 文件和 `novels.json` 已在 `.gitignore` 中排除
-3. **定期备份**：你的分析数据存在 `.db` 文件中，建议定期复制备份
-4. **章节格式**：导入 txt 文件时，章节需要包含「第X章」标记，如 `第1章 觉醒日`
-5. **断网重连**：如果 API 调用失败，工具会自动重试一次，仍失败会跳过当前批次继续
-
----
-
-## 常见问题
-
-**Q: 导入提示成功但概览里没有数据？**
-A: 界面会显示黄色警告提示。可能原因：1) API Key 未正确配置；2) 网络问题导致 LLM 调用失败；3) 章节内容中暂无可提取的实体。检查 API Key 后重试。
-
-**Q: 导入中断了怎么办？**
-A: 重新导入同一个文件，系统会自动跳过已分析的章节，从中断处继续。
-
-**Q: 可以同时管理多部小说吗？**
-A: 可以。点击右上角小说名，新建小说即可。每部小说独立一个数据库。
-
-**Q: 分析结果不对怎么办？**
-A: 可以编辑 `extractor/prompt.py` 中的提示词，调整分析规则让 AI 更符合你的习惯。
-
-**Q: 数据存在哪？**
-A: SQLite 数据库文件（`novel.db` 或 `novel-小说名.db`），可用 [DB Browser for SQLite](https://sqlitebrowser.org/) 直接打开查看。
+| 现象 | 解决方法 |
+|------|---------|
+| 双击 启动.bat 没反应 | 跑 诊断.bat，看 Python / 依赖 / WebView2 哪个出问题 |
+| TypeError: '>' not supported between instances of 'str' and 'int' | 升级到本分支，旧版会在 chapter_end 损坏时崩溃；本分支已修复 |
+| 整本导入后看不到数据，但章节数显示正常 | 在「设置」里点「测试连接」，看是不是 base_url / model 配错 |
+| 断网 / API 限流 | 单批失败会自动重试 1 次；整本导入可重新触发，已成功章节不会重复 |
+| pywebview 启动闪退 | 安装 Edge WebView2 运行时：https://developer.microsoft.com/microsoft-edge/webview2/ |
 
 ---
+
+## 致谢
+
+- 原项目：[liu220738-sys/novel-agent-release](https://github.com/liu220738-sys/novel-agent-release)
+- 提示词设计、数据库模型、核心提取逻辑来自原作者
+- 本分支的贡献：见 [CHANGELOG.md](./CHANGELOG.md) 的版本记录
 
 ## License
 
